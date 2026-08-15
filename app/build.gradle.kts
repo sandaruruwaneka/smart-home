@@ -10,7 +10,7 @@ android {
             minorApiLevel = 1
         }
     }
-
+    
     defaultConfig {
         applicationId = "com.smarthome.control"
         minSdk = 24
