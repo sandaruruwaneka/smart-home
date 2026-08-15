@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Autofill draws its own highlight over a filled field, and the platform default is a
+      translucent yellow chosen for light themes. Over this app's `surfaceVariant` it comes
+      out olive and reads as an error state on the one screen where a real error is red.
+
+      Transparent instead: the field already shows the filled value at full contrast, and
+      the user just watched it appear, so the highlight adds nothing but noise.
+
+      `android:autofilledHighlight` was added in API 26, hence values-v26. minSdk is 24, so
+      the two API levels below this keep the platform default — autofill is rare there and
+      the field is still perfectly readable.
+    -->
+    <style name="Theme.SmartHomeControl" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/launch_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:autofilledHighlight">@android:color/transparent</item>
+    </style>
+</resources>
