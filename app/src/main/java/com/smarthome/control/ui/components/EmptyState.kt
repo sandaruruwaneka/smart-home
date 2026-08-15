@@ -113,10 +113,13 @@ fun EmptyState(
  */
 object EmptyStates {
 
+    // Screen prompt 02 section 7 fixes this line as "start placing devices", which is the
+    // later and more specific of the two spellings in the briefs. Both live here so the
+    // floor list and any future caller say it the same way.
     @Composable
     fun Floors(modifier: Modifier = Modifier, onAddFloor: () -> Unit = {}) = EmptyState(
         icon = Icons.Rounded.Layers,
-        message = "No floors yet. Add your first floor plan to place devices.",
+        message = "No floors yet. Add your first floor plan to start placing devices.",
         modifier = modifier,
         actionLabel = "Add floor",
         onAction = onAddFloor,
