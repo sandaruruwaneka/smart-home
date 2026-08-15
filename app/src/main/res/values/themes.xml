@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Platform theme only. Everything visual is defined in Compose by SmartHomeTheme.
+      Dark is primary (master prompt section 2), so the launch theme is dark to avoid a
+      white flash before the first frame; values-night is unnecessary for the same reason.
+    -->
+    <style name="Theme.SmartHomeControl" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/launch_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>
