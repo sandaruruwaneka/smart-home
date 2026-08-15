@@ -1,0 +1,68 @@
+rules_version = '2';
+
+// Security rules for the Smart Home Monitoring & Control System.
+//
+// SCHEMA.md section 13 gives the *shape* of these rules in shorthand; this is that shape
+// written in real rules syntax, since Firestore has no `where collection in [...]` form.
+// Rules are Dev B's territory -- any change here needs to be agreed, the same as a change
+// to the data contract itself.
+//
+// Deploy with: firebase deploy --only firestore:rules
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Ownership is carried by `owner_uid` on every top-level document, which is what makes
+    // flat collections workable: the rule is the same everywhere and needs no lookups.
+    function owns(data) {
+      return signedIn() && request.auth.uid == data.owner_uid;
+    }
+
+    // The profile document's id is the uid itself -- the one collection not using auto-ids.
+    match /users/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /floors/{floorId} {
+      allow read, update, delete: if owns(resource.data);
+      allow create: if owns(request.resource.data);
+    }
+
+    match /devices/{deviceId} {
+      allow read, update, delete: if owns(resource.data);
+      allow create: if owns(request.resource.data);
+
+      // Channels carry no `owner_uid` of their own, so ownership is read from the parent.
+      // This is a document read per rule evaluation and therefore billable -- acceptable
+      // here because channels are only touched from an open device sheet.
+      match /channels/{channelId} {
+        allow read, write: if signedIn() && request.auth.uid ==
+          get(/databases/$(database)/documents/devices/$(deviceId)).data.owner_uid;
+      }
+    }
+
+    match /usage_events/{eventId} {
+      allow read, update, delete: if owns(resource.data);
+      allow create: if owns(request.resource.data);
+    }
+
+    match /alerts/{alertId} {
+      allow read: if owns(resource.data);
+
+      // The app acknowledges alerts and does nothing else to them. Restricting the update
+      // to that single field means a client cannot rewrite an alert's message or device
+      // name to something the worker never said.
+      allow update: if owns(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['acknowledged']);
+
+      // Alerts are raised by the safety worker only. The Admin SDK bypasses rules, so
+      // denying clients outright costs the worker nothing -- and an alert the app could
+      // invent would be one no worker could ever clear.
+      allow create, delete: if false;
+    }
+  }
+}
