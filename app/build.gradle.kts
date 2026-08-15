@@ -1,6 +1,12 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    // Uncomment once `app/google-services.json` has been downloaded from the Firebase
+    // console. The plugin reads that file to generate the project id, API key and
+    // application id that FirebaseApp needs at startup, and it fails the build outright
+    // when the file is absent -- so it stays off until the file is in place. Everything
+    // in `data/` compiles without it; only runtime initialisation needs it.
+    // alias(libs.plugins.google.services)
 }
 
 android {
@@ -31,6 +37,10 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        // minSdk is 24, so java.time only exists from API 26 onwards. Desugaring
+        // backports it -- see the Reports derivations, which need a timezone-aware
+        // midnight rather than a UTC one.
+        isCoreLibraryDesugaringEnabled = true
     }
     buildFeatures {
         compose = true
@@ -47,6 +57,15 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.storage)
+    implementation(libs.kotlinx.coroutines.play.services)
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
+
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

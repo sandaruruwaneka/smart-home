@@ -1,0 +1,61 @@
+{
+  "//": "Composite indexes required by SCHEMA.md section 12, plus one the app needs that the contract does not yet list (floors, flagged below). Firestore refuses these queries without an index and the error surfaces only at runtime, so deploy this before the demo: firebase deploy --only firestore:indexes",
+  "indexes": [
+    {
+      "//": "DeviceRepository.observeDevices -- the single account-wide listener the floor list's summary counts are grouped from.",
+      "collectionGroup": "devices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "owner_uid", "order": "ASCENDING" },
+        { "fieldPath": "floor_id", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "Safety worker's cutoff sweep (section 10.1). Owned by Dev B; listed here so one deploy covers both sides.",
+      "collectionGroup": "devices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "turned_on_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "UsageEventRepository.observeForDevice -- one device's history, newest first.",
+      "collectionGroup": "usage_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "device_id", "order": "ASCENDING" },
+        { "fieldPath": "started_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "UsageEventRepository.observeSince -- the Reports query.",
+      "collectionGroup": "usage_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "owner_uid", "order": "ASCENDING" },
+        { "fieldPath": "started_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "AlertRepository.observeAlerts -- the alert list and the Critical banner.",
+      "collectionGroup": "alerts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "owner_uid", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "NOT IN SCHEMA.md SECTION 12 -- needs Dev B's agreement before it is treated as part of the contract. FloorRepository.observeFloors filters on owner_uid and orders by created_at, which is an equality plus an order-by on a different field and therefore composite. Without this, the floor list is empty at runtime with only a console link in logcat.",
+      "collectionGroup": "floors",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "owner_uid", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
