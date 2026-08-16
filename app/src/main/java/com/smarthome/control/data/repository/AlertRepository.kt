@@ -1,5 +1,6 @@
 package com.smarthome.control.data.repository
 
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.smarthome.control.data.AlertFields
@@ -50,6 +51,21 @@ class AlertRepository(
      */
     fun observeUnacknowledged(ownerUid: String): Flow<List<Alert>> =
         observeAlerts(ownerUid).map { list -> list.filter { !it.acknowledged } }
+
+    /**
+     * Alerts raised since [since], read once — the safety half of Reports.
+     *
+     * Uses the same `owner_uid ASC, created_at DESC` index the listener does, so the range
+     * filter costs no extra index.
+     */
+    suspend fun getSince(ownerUid: String, since: Timestamp): List<Alert> =
+        alerts
+            .whereEqualTo(AlertFields.OWNER_UID, ownerUid)
+            .whereGreaterThanOrEqualTo(AlertFields.CREATED_AT, since)
+            .orderBy(AlertFields.CREATED_AT, Query.Direction.DESCENDING)
+            .get()
+            .await()
+            .mapDocuments(Alert::fromSnapshot)
 
     suspend fun acknowledge(alertId: String) {
         alerts.document(alertId).update(AlertFields.ACKNOWLEDGED, true).await()
