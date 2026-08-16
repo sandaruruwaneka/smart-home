@@ -240,6 +240,23 @@ class DeviceRepository(
         ).await()
     }
 
+    /**
+     * Replaces a camera's URIs.
+     *
+     * Both are written together for the same reason a light's schedule keys are: a stream
+     * URI paired with the previous snapshot URI is a camera pointing at two different
+     * places, which is not a state anybody asked for.
+     */
+    suspend fun updateCameraUris(deviceId: String, config: DeviceConfig.Camera) {
+        devices.document(deviceId).update(
+            mapOf(
+                DeviceFields.CONFIG to config.toMap(),
+                DeviceFields.LAST_CHANGED_AT to FieldValue.serverTimestamp(),
+                DeviceFields.LAST_CHANGED_BY to ChangeSource.APP.name,
+            ),
+        ).await()
+    }
+
     // ------------------------------------------------------- power switching
 
     /**
