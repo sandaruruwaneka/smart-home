@@ -142,30 +142,14 @@ internal fun buildOutletSheetState(
     return OutletSheetUiState(
         isLoading = false,
         deviceName = value.name,
-        locationLine = locationLine(value, floor),
+        locationLine = deviceLocationLine(value, floor),
         state = value.status,
         pendingWrite = !device.isFromServer,
         lastChangedMillis = value.lastChangedAt?.toDate()?.time,
-        usage = buildDayUsage(events, startOfDayMillis(nowMillis, zone), nowMillis),
+        usage = buildDayUsage(events, startOfDay(nowMillis, zone), nowMillis),
         nowMillis = nowMillis,
     )
 }
-
-/**
- * `Ground Floor · R2 C5`, or the coordinates alone while the floor document is still on
- * its way.
- *
- * Rows and columns are shown 1-based although they are stored 0-based. The grid is a
- * physical thing the user counts across a floor plan, and nobody counts from zero out loud.
- */
-private fun locationLine(device: Device, floor: Floor?): String {
-    val cell = "R${device.gridY + 1} C${device.gridX + 1}"
-    return floor?.name?.takeIf { it.isNotBlank() }?.let { "$it · $cell" } ?: cell
-}
-
-private fun startOfDayMillis(nowMillis: Long, zone: ZoneId): Long =
-    Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate().atStartOfDay(zone)
-        .toInstant().toEpochMilli()
 
 /**
  * The day's usage, clipped to the day.

@@ -231,7 +231,7 @@ internal fun buildMultiSwitchSheetState(
     return MultiSwitchSheetUiState(
         isLoading = false,
         deviceName = value.name,
-        locationLine = locationLine(value, floor, rows.size),
+        locationLine = deviceLocationLine(value, floor, suffix = "${rows.size} gang".takeIf { rows.size > 0 }),
         unitState = unitState,
         channels = rows,
         lastChangedMillis = value.lastChangedAt?.toDate()?.time,
@@ -243,13 +243,6 @@ internal fun buildMultiSwitchSheetState(
         ),
         nowMillis = nowMillis,
     )
-}
-
-/** `Ground Floor · R4 C3 · 3 gang`. */
-private fun locationLine(device: Device, floor: Floor?, channelCount: Int): String {
-    val cell = "R${device.gridY + 1} C${device.gridX + 1}"
-    val place = floor?.name?.takeIf { it.isNotBlank() }?.let { "$it · $cell" } ?: cell
-    return if (channelCount > 0) "$place · $channelCount gang" else place
 }
 
 /**
@@ -289,6 +282,3 @@ internal fun buildMultiSwitchUsage(
     )
 }
 
-private fun startOfDay(nowMillis: Long, zone: ZoneId): Long =
-    Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate().atStartOfDay(zone)
-        .toInstant().toEpochMilli()

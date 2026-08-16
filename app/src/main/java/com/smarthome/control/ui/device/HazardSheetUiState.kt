@@ -175,8 +175,6 @@ internal fun spellLimit(totalSeconds: Long): String {
 
 private val ClockFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
 
-private fun clockTime(epochMillis: Long, zone: ZoneId): String =
-    Instant.ofEpochMilli(epochMillis).atZone(zone).format(ClockFormat)
 
 /**
  * The presets on the duration picker, in the order section 3 lists them.
@@ -227,7 +225,7 @@ internal fun buildHazardSheetState(
     }
 
     val value = device.value
-    val dayStart = startOfDayMillis(nowMillis, zone)
+    val dayStart = startOfDay(nowMillis, zone)
 
     val cutoffs = alerts
         .filter { it.deviceId == value.id && it.type == AlertType.MAX_DURATION_EXCEEDED }
@@ -237,7 +235,7 @@ internal fun buildHazardSheetState(
     return HazardSheetUiState(
         isLoading = false,
         deviceName = value.name,
-        locationLine = hazardLocationLine(value, floor),
+        locationLine = deviceLocationLine(value, floor),
         state = value.status,
         maxOnSeconds = value.applianceConfig?.maxOnDurationSeconds?.toLong(),
         turnedOnAtMillis = value.turnedOnAt?.toDate()?.time,
@@ -252,14 +250,6 @@ internal fun buildHazardSheetState(
     )
 }
 
-private fun hazardLocationLine(device: Device, floor: Floor?): String {
-    val cell = "R${device.gridY + 1} C${device.gridX + 1}"
-    return floor?.name?.takeIf { it.isNotBlank() }?.let { "$it · $cell" } ?: cell
-}
-
 private fun hourOfDay(millis: Long, dayStartMillis: Long): Int =
     (((millis - dayStartMillis) / (60L * 60L * 1000L)).toInt()).coerceIn(0, HoursInDay - 1)
 
-private fun startOfDayMillis(nowMillis: Long, zone: ZoneId): Long =
-    Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate().atStartOfDay(zone)
-        .toInstant().toEpochMilli()
