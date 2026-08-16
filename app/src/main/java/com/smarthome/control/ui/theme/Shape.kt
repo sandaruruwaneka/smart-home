@@ -48,6 +48,14 @@ object AppBorders {
 
     /** The leading state bar on a ChannelRow. */
     val stateBar = 3.dp
+
+    /**
+     * A chosen option in a picker — the sample plan in screen prompt 05 step 2.
+     *
+     * Heavier than [emphasis] because it is not saying "look at this", it is saying "this
+     * is the one you picked", and that has to survive sitting next to five identical cards.
+     */
+    val selected = 2.dp
 }
 
 val SmartHomeShapes = Shapes(
