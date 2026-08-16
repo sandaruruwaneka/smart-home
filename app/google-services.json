@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "571329436069",
+    "project_id": "smart-home-bac85",
+    "storage_bucket": "smart-home-bac85.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:571329436069:android:ee149ef70107daa0e4704c",
+        "android_client_info": {
+          "package_name": "com.smarthome.control"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfDU9za6vjlJp-g3gnufuX8kCmqv3I638"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

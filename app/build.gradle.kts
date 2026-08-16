@@ -1,12 +1,10 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    // Uncomment once `app/google-services.json` has been downloaded from the Firebase
-    // console. The plugin reads that file to generate the project id, API key and
-    // application id that FirebaseApp needs at startup, and it fails the build outright
-    // when the file is absent -- so it stays off until the file is in place. Everything
-    // in `data/` compiles without it; only runtime initialisation needs it.
-    // alias(libs.plugins.google.services)
+    // Reads `app/google-services.json` to generate the project id, API key and application
+    // id that FirebaseApp needs at startup. The plugin fails the build outright when that
+    // file is absent, which is why it was commented out until the file arrived.
+    alias(libs.plugins.google.services)
 }
 
 android {

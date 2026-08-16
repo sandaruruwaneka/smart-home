@@ -1,0 +1,7 @@
+{
+  "//": "Points the Firebase CLI at the rules and indexes in firebase/. Without this file `firebase deploy` has nothing to deploy, even though both files have been in the repo since the data layer landed. Deploy both before the demo: firebase deploy --only firestore:rules,firestore:indexes",
+  "firestore": {
+    "rules": "firebase/firestore.rules",
+    "indexes": "firebase/firestore.indexes.json"
+  }
+}
