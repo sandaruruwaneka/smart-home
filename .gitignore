@@ -17,3 +17,7 @@ local.properties
 # .claude/worktrees/, so committing it would put a second full copy of this
 # repository inside the repository.
 .claude/
+
+# Firebase CLI logs, written wherever the command happens to run.
+firebase-debug.log
+firestore-debug.log
