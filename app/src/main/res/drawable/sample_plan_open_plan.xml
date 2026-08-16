@@ -1,0 +1,23 @@
+<!-- Sample floor plan: open plan living with a utility run along one wall. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="140dp"
+    android:viewportWidth="1000"
+    android:viewportHeight="700">
+    <path
+        android:pathData="M30,30 H970 V670 H30 Z"
+        android:strokeColor="#8A9AA3"
+        android:strokeWidth="14" />
+    <path
+        android:pathData="M30,520 H970"
+        android:strokeColor="#8A9AA3"
+        android:strokeWidth="10" />
+    <path
+        android:pathData="M330,520 V670 M660,520 V670"
+        android:strokeColor="#8A9AA3"
+        android:strokeWidth="10" />
+    <path
+        android:pathData="M760,30 V300 M760,300 H970"
+        android:strokeColor="#8A9AA3"
+        android:strokeWidth="10" />
+</vector>

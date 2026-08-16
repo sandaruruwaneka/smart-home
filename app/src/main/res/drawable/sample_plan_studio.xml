@@ -1,0 +1,23 @@
+<!-- Sample floor plan: studio. Drawn in a mid grey that holds up on both themes. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="140dp"
+    android:viewportWidth="1000"
+    android:viewportHeight="700">
+    <path
+        android:pathData="M30,30 H970 V670 H30 Z"
+        android:strokeColor="#8A9AA3"
+        android:strokeWidth="14" />
+    <path
+        android:pathData="M640,30 V320 M640,320 H970"
+        android:strokeColor="#8A9AA3"
+        android:strokeWidth="10" />
+    <path
+        android:pathData="M640,470 H970"
+        android:strokeColor="#8A9AA3"
+        android:strokeWidth="10" />
+    <path
+        android:pathData="M300,560 H520 M300,560 V670"
+        android:strokeColor="#8A9AA3"
+        android:strokeWidth="10" />
+</vector>
