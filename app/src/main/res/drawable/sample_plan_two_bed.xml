@@ -1,0 +1,27 @@
+<!-- Sample floor plan: two bedrooms off a central hall. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="140dp"
+    android:viewportWidth="1000"
+    android:viewportHeight="700">
+    <path
+        android:pathData="M30,30 H970 V670 H30 Z"
+        android:strokeColor="#8A9AA3"
+        android:strokeWidth="14" />
+    <path
+        android:pathData="M380,30 V670"
+        android:strokeColor="#8A9AA3"
+        android:strokeWidth="10" />
+    <path
+        android:pathData="M640,30 V670"
+        android:strokeColor="#8A9AA3"
+        android:strokeWidth="10" />
+    <path
+        android:pathData="M30,350 H380"
+        android:strokeColor="#8A9AA3"
+        android:strokeWidth="10" />
+    <path
+        android:pathData="M640,400 H970"
+        android:strokeColor="#8A9AA3"
+        android:strokeWidth="10" />
+</vector>

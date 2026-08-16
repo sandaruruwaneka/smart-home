@@ -1,12 +1,10 @@
 *.iml
 .gradle
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+# All of it, not the handful of files the Android Studio template lists. The rest of the
+# directory is regenerated on every SDK, JDK or plugin change, so it shows up as a diff
+# nobody made and nobody reviews.
+.idea/
 .DS_Store
 /build
 /captures

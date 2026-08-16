@@ -1,0 +1,23 @@
+<!-- Sample floor plan: L-shaped apartment. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="140dp"
+    android:viewportWidth="1000"
+    android:viewportHeight="700">
+    <path
+        android:pathData="M30,30 H600 V330 H970 V670 H30 Z"
+        android:strokeColor="#8A9AA3"
+        android:strokeWidth="14" />
+    <path
+        android:pathData="M300,30 V330"
+        android:strokeColor="#8A9AA3"
+        android:strokeWidth="10" />
+    <path
+        android:pathData="M30,330 H600"
+        android:strokeColor="#8A9AA3"
+        android:strokeWidth="10" />
+    <path
+        android:pathData="M600,470 H970"
+        android:strokeColor="#8A9AA3"
+        android:strokeWidth="10" />
+</vector>

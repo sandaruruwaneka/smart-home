@@ -115,6 +115,19 @@ class FloorRepository(
     }
 
     /**
+     * Points the floor at a plan image that needs no upload.
+     *
+     * The bundled sample plans the brief permits for the demo ship inside the APK and are
+     * referenced by `android.resource://` URI, so there is nothing to put in Storage --
+     * only a string to write. Kept separate from [uploadPlanImage] rather than folded into
+     * it, because a method that sometimes uploads and sometimes does not is one whose
+     * failure modes nobody can hold in their head.
+     */
+    suspend fun setPlanImageUrl(floorId: String, url: String) {
+        floors.document(floorId).update(FloorFields.PLAN_IMAGE_URL, url).await()
+    }
+
+    /**
      * Removes the plan image, returning the floor to a blank grid.
      *
      * The Storage object is deleted first and its failure ignored: if the file is already
