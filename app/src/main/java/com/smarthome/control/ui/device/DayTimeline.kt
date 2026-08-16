@@ -44,6 +44,14 @@ fun DayTimeline(
     hourFractions: List<Float>,
     contentDescription: String,
     modifier: Modifier = Modifier,
+    /**
+     * Hours in which the safety worker cut the device off, marked with a 2 dp `stateError`
+     * tick along the top of the segment (screen prompt 07 section 7).
+     *
+     * This is what turns the bar from a usage chart into a record of the safety system
+     * working, which is exactly the artefact worth having on screen during the demo.
+     */
+    cutoffHours: Set<Int> = emptySet(),
 ) {
     val colors = SmartHomeTheme.colors
     if (hourFractions.size != HoursInDay) return
@@ -71,6 +79,17 @@ fun DayTimeline(
                     color = colors.stateOn,
                     topLeft = Offset(hour * hourWidth, 0f),
                     size = Size(hourWidth * fraction.coerceIn(0f, 1f), size.height),
+                )
+            }
+
+            // Drawn last so a tick is never buried under the amber it sits on.
+            val tickHeight = TickHeight.toPx()
+            cutoffHours.forEach { hour ->
+                if (hour !in 0 until HoursInDay) return@forEach
+                drawRect(
+                    color = colors.stateError,
+                    topLeft = Offset(hour * hourWidth, 0f),
+                    size = Size(hourWidth, tickHeight),
                 )
             }
         }
@@ -171,6 +190,7 @@ fun StackedDayTimeline(
 }
 
 private val BarHeight = 32.dp
+private val TickHeight = 2.dp
 private val BandHeight = 10.dp
 private val BandGap = 2.dp
 private val LabelWidth = 64.dp

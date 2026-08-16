@@ -1,7 +1,12 @@
 package com.smarthome.control.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -50,6 +55,16 @@ import com.smarthome.control.ui.theme.rememberReducedMotion
  * @param maxOnSeconds `config.max_on_duration`. Values at or below zero render an empty
  *   ring rather than dividing by zero — an appliance without a limit should never reach
  *   this component, but a malformed document should not crash the sheet.
+ * @param depleting draws the arc as time *left* rather than time used, so the ring empties
+ *   as the countdown runs down. Screen prompt 07 section 4 requires it on the hazard sheet,
+ *   where the ring is the screen's headline and a filling arc reads backwards — the eye
+ *   takes a shrinking arc as "running out" without being told. The floor dashboard's chips
+ *   keep the filling arc, which reads as "how far through" at 28 dp where there is no room
+ *   for a number.
+ * @param label the word under the figure. `left` at chip size, `remaining` on the sheet.
+ * @param pulse the slow two-second breath from the master prompt, applied in the final
+ *   tenth. It is the only pulse in the app and section 4 says this is where it belongs, so
+ *   it is off by default and every other caller leaves it off.
  */
 @Composable
 fun CountdownRing(
@@ -66,6 +81,9 @@ fun CountdownRing(
      * four pixels, and a countdown nobody can read is just a decoration.
      */
     showLabel: Boolean = true,
+    depleting: Boolean = false,
+    label: String = "left",
+    pulse: Boolean = false,
 ) {
     val colors = SmartHomeTheme.colors
     val reducedMotion = rememberReducedMotion()
@@ -98,6 +116,19 @@ fun CountdownRing(
         "${formatDuration(remaining)} remaining of ${formatDuration(maxOnSeconds)}"
     }
 
+    // The master prompt's slow breath, spent here and nowhere else. Suppressed under
+    // reduced motion, where the red is left standing rather than moving.
+    val transition = rememberInfiniteTransition(label = "CountdownRing pulse")
+    val pulseAlpha by transition.animateFloat(
+        initialValue = 1f,
+        targetValue = if (pulse && inFinalTenth && !reducedMotion) PulseFloor else 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(PulseMillis, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "CountdownRing pulse alpha",
+    )
+
     Box(
         modifier = modifier
             .size(size)
@@ -121,11 +152,12 @@ fun CountdownRing(
                 size = arcSize,
                 style = Stroke(width = strokePx, cap = StrokeCap.Round),
             )
-            // Elapsed sweep, starting at twelve o'clock and running clockwise.
+            // From twelve o'clock, clockwise. Filling with elapsed time by default;
+            // emptying with the time left when the caller asks for a depleting ring.
             drawArc(
-                color = animatedColor,
+                color = animatedColor.copy(alpha = animatedColor.alpha * pulseAlpha),
                 startAngle = -90f,
-                sweepAngle = 360f * animatedFraction,
+                sweepAngle = 360f * (if (depleting) 1f - animatedFraction else animatedFraction),
                 useCenter = false,
                 topLeft = topLeft,
                 size = arcSize,
@@ -141,7 +173,7 @@ fun CountdownRing(
                     color = if (inFinalTenth) colors.stateError else colors.textPrimary,
                 )
                 Text(
-                    text = "left",
+                    text = label,
                     style = AppType.label,
                     color = colors.textSecondary,
                 )
@@ -149,6 +181,10 @@ fun CountdownRing(
         }
     }
 }
+
+/** Master prompt section 10 — the two-second breath, and how far down it dips. */
+private const val PulseMillis = 1000
+private const val PulseFloor = 0.45f
 
 /**
  * Formats seconds as `m:ss`, or `h:mm:ss` past an hour.
