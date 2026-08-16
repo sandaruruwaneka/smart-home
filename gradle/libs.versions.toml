@@ -13,6 +13,7 @@ googleServices = "4.5.0"
 coroutines = "1.11.0"
 desugarJdkLibs = "2.1.5"
 coil = "3.3.0"
+media3 = "1.9.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -54,6 +55,14 @@ androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lif
 # the AsyncImage composable.
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
+
+# Camera playback (screen prompt 10). ExoPlayer handles the HLS the brief's mock feeds use;
+# media3-ui carries PlayerView, which is a plain Android view hosted in Compose via
+# AndroidView -- Compose has no video surface of its own. The HLS artifact is separate
+# because Media3 splits each container format into its own module.
+androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
+androidx-media3-exoplayer-hls = { group = "androidx.media3", name = "media3-exoplayer-hls", version.ref = "media3" }
+androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
 
 # Backports java.time to minSdk 24. Needed because "time on today" (SCHEMA.md section 14)
 # has to find midnight in the home's IANA timezone, which java.util.Calendar does badly.
