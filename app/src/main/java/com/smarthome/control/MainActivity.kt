@@ -13,6 +13,8 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.smarthome.control.ui.alerts.AlertsScreen
 import com.smarthome.control.ui.auth.LoginScreen
+import com.smarthome.control.ui.camera.CameraScreen
+import com.smarthome.control.ui.camera.CameraWallScreen
 import com.smarthome.control.ui.floor.FloorDashboardScreen
 import com.smarthome.control.ui.floor.edit.EditFloorScreen
 import com.smarthome.control.ui.gallery.DesignSystemGallery
@@ -68,6 +70,8 @@ private fun SmartHomeApp() {
         mutableStateOf<EditorRoute?>(null)
     }
     var showingAlerts by rememberSaveable { mutableStateOf(false) }
+    var openCameraId by rememberSaveable { mutableStateOf<String?>(null) }
+    var showingCameraWall by rememberSaveable { mutableStateOf(false) }
 
     val goHome: (AppDestination) -> Unit = { destination ->
         when (destination) {
@@ -86,6 +90,28 @@ private fun SmartHomeApp() {
             // The gallery applies its own theme, since it has a light/dark toggle of its own.
             BackHandler { showingGallery = false }
             DesignSystemGallery()
+        }
+
+        openCameraId != null -> SmartHomeTheme {
+            BackHandler { openCameraId = null }
+            CameraScreen(
+                deviceId = requireNotNull(openCameraId),
+                onBack = { openCameraId = null },
+                // The strip moves between cameras without going back to the floor plan,
+                // which is the whole reason it is there.
+                onOpenCamera = { openCameraId = it },
+                onViewWall = { openCameraId = null; showingCameraWall = true },
+                onMoveDevice = { openCameraId = null; openFloorId?.let { id -> editing = EditorRoute.Edit(id) } },
+            )
+        }
+
+        showingCameraWall -> SmartHomeTheme {
+            BackHandler { showingCameraWall = false }
+            CameraWallScreen(
+                onBack = { showingCameraWall = false },
+                onOpenCamera = { showingCameraWall = false; openCameraId = it },
+                onGoToFloors = { showingCameraWall = false; openFloorId = null },
+            )
         }
 
         showingAlerts -> SmartHomeTheme {
@@ -118,7 +144,9 @@ private fun SmartHomeApp() {
             FloorDashboardScreen(
                 floorId = requireNotNull(openFloorId),
                 onBack = { openFloorId = null },
-                onOpenDevice = { /* Multi-switch, appliance and light sheets — screens 06, 07. */ },
+                // Every other type opens a sheet on the dashboard itself; a camera is the
+                // one device you watch rather than control, so it gets a screen.
+                onOpenDevice = { openCameraId = it },
                 onEditFloor = { editing = EditorRoute.Edit(it) },
                 // Switching floors stays on this screen rather than routing back through
                 // Home, which is the whole point of the switcher behind the title.
