@@ -1,5 +1,6 @@
 package com.smarthome.control.ui.floor.edit
 
+import com.smarthome.control.ui.floor.PlanImage
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.tween

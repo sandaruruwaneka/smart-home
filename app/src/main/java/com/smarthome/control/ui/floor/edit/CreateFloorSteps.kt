@@ -1,5 +1,8 @@
 package com.smarthome.control.ui.floor.edit
 
+import com.smarthome.control.ui.floor.SamplePlan
+import com.smarthome.control.ui.floor.SamplePlans
+import com.smarthome.control.ui.floor.samplePlanFor
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

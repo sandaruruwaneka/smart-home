@@ -105,11 +105,21 @@ class HazardSheetViewModel(
             if (uid == null) flowOf(emptyList()) else alerts.observeAlerts(uid)
         }
 
+        // The owner comes off the device document rather than from a second auth lookup.
+        // The filter is not belt-and-braces: Firestore rules are not filters, so a query
+        // without it is refused outright and the whole sheet fails to load.
+        val usageStream = deviceStream
+            .map { it?.value?.ownerUid }
+            .distinctUntilChanged()
+            .flatMapLatest { uid ->
+                if (uid == null) flowOf(emptyList()) else usageEvents.observeForDevice(uid, deviceId)
+            }
+
         return combine(
             deviceStream,
             floorStream,
             alertStream,
-            usageEvents.observeForDevice(deviceId),
+            usageStream,
             clock(),
         ) { device, floor, alertList, events, nowMillis ->
             currentDevice = device?.value

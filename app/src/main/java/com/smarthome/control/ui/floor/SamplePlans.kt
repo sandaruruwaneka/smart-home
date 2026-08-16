@@ -1,4 +1,4 @@
-package com.smarthome.control.ui.floor.edit
+package com.smarthome.control.ui.floor
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
@@ -51,11 +51,25 @@ fun samplePlanFor(url: String?): SamplePlan? {
 /**
  * A floor plan from wherever it happens to live.
  *
+ * Lives in `ui.floor` rather than `ui.floor.edit` because the dashboard needs it too. It
+ * originally sat with the editor, which is why the dashboard was still going out to Coil
+ * for every plan — including the bundled ones, which Coil cannot resolve.
+ *
  * A bundled sample is drawn straight from resources rather than routed through the image
  * loader. It is already decoded and in memory, and going out to Coil for a drawable that
  * shipped in the APK would put a load state in front of something that cannot fail.
  * Uploads and freshly picked photos still go through Coil, which is what it is for.
  */
+/**
+ * The painter behind [PlanImage], for callers that need the intrinsic size — the dashboard
+ * aspect-fits its grid to the plan's own ratio and cannot do that from a composable alone.
+ */
+@Composable
+fun planPainter(url: String): androidx.compose.ui.graphics.painter.Painter {
+    val sample = remember(url) { samplePlanFor(url) }
+    return if (sample != null) painterResource(sample.drawable) else rememberAsyncImagePainter(url)
+}
+
 @Composable
 fun PlanImage(
     url: String?,

@@ -101,13 +101,20 @@ class OutletSheetViewModel(
                 if (floorId == null) flowOf(null) else floors.observeFloor(floorId)
             }
 
+        // The owner comes off the device document rather than from a second auth lookup.
+        // The filter is not belt-and-braces: Firestore rules are not filters, so a query
+        // without it is refused outright and the whole sheet fails to load.
+        val usageStream = deviceStream
+            .map { it?.value?.ownerUid }
+            .distinctUntilChanged()
+            .flatMapLatest { uid ->
+                if (uid == null) flowOf(emptyList()) else usageEvents.observeForDevice(uid, deviceId)
+            }
+
         return combine(
             deviceStream,
             floorStream,
-            // Needs the `device_id ASC, started_at DESC` composite index. Fifty rows is far
-            // more than a day holds for one outlet; the state builder keeps what overlaps
-            // today and discards the rest.
-            usageEvents.observeForDevice(deviceId),
+            usageStream,
             clock(),
             actionError,
         ) { device, floor, events, nowMillis, error ->
