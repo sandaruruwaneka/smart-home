@@ -73,6 +73,7 @@ import com.smarthome.control.ui.components.EmptyState
 import com.smarthome.control.ui.components.formatDuration
 import com.smarthome.control.ui.components.LabeledTextField
 import com.smarthome.control.ui.components.PriorityContainer
+import com.smarthome.control.ui.device.OutletControlSheet
 import com.smarthome.control.ui.model.DeviceState
 import com.smarthome.control.ui.model.DeviceType
 import com.smarthome.control.ui.model.PriorityTier
@@ -167,6 +168,26 @@ internal fun FloorDashboardContent(
     var confirmingTurnAllOff by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
+    var sheetForDevice by remember { mutableStateOf<MarkerUiState?>(null) }
+
+    /**
+     * One way into a device's controls, wherever the tap came from — a marker, the hazard
+     * strip, the banner, or the quick-actions sheet.
+     *
+     * Outlets open their sheet here rather than through [onOpenDevice], because the sheet
+     * is a continuation of this screen: it sits over the plan, and dismissing it has to
+     * clear the marker's selection ring, which only this composable can do. The other three
+     * types still call out — their sheets are screens 06 and 07.
+     */
+    val openDevice: (String) -> Unit = { deviceId ->
+        selectedDeviceId = deviceId
+        val marker = state.markers.firstOrNull { it.deviceId == deviceId }
+        if (marker != null && marker.type == DeviceType.OUTLET) {
+            sheetForDevice = marker
+        } else {
+            onOpenDevice(deviceId)
+        }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -258,11 +279,11 @@ internal fun FloorDashboardContent(
             BannerSlot(
                 banner = state.banner,
                 nowMillis = state.nowMillis,
-                onOpenDevice = onOpenDevice,
+                onOpenDevice = openDevice,
                 onViewAlerts = { onNavigate(AppDestination.Alerts) },
             )
 
-            HazardStrip(hazards = state.hazards, onOpenDevice = onOpenDevice)
+            HazardStrip(hazards = state.hazards, onOpenDevice = openDevice)
 
             Box(
                 modifier = Modifier
@@ -276,10 +297,7 @@ internal fun FloorDashboardContent(
                     state = state,
                     viewport = viewport,
                     selectedDeviceId = selectedDeviceId,
-                    onSelectMarker = { marker ->
-                        selectedDeviceId = marker.deviceId
-                        onOpenDevice(marker.deviceId)
-                    },
+                    onSelectMarker = { marker -> openDevice(marker.deviceId) },
                     onLongPressMarker = { quickActionsFor = it },
                     onTapEmptySpace = { selectedDeviceId = null },
                     modifier = Modifier.fillMaxSize(),
@@ -331,13 +349,26 @@ internal fun FloorDashboardContent(
             sheetState = rememberModalBottomSheetState(),
             onDismiss = { quickActionsFor = null },
             onTurnOff = { quickActionsFor = null; onToggleDevice(marker.deviceId) },
-            onOpenControls = { quickActionsFor = null; onOpenDevice(marker.deviceId) },
+            onOpenControls = { quickActionsFor = null; openDevice(marker.deviceId) },
             onDetails = { quickActionsFor = null; detailsFor = marker },
         )
     }
 
     detailsFor?.let { marker ->
         DeviceDetailsDialog(marker = marker, onDismiss = { detailsFor = null })
+    }
+
+    // Screen 04. Dismissing it clears the selection ring, which is the other half of the
+    // marker tap that opened it.
+    sheetForDevice?.let { marker ->
+        OutletControlSheet(
+            deviceId = marker.deviceId,
+            onDismiss = { sheetForDevice = null; selectedDeviceId = null },
+            onMoveDevice = { sheetForDevice = null; selectedDeviceId = null; onEditFloor() },
+            // Per-device history is the Reports screen, which is prompt 11. This goes the
+            // same nowhere the Reports tab does rather than to an invented placeholder.
+            onViewHistory = { onNavigate(AppDestination.Reports) },
+        )
     }
 
     if (confirmingTurnAllOff) {
