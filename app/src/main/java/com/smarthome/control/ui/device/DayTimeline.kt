@@ -4,11 +4,14 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -85,6 +88,94 @@ fun DayTimeline(
     }
 }
 
+/**
+ * The same day, one band per channel, sharing one axis.
+ *
+ * This is where the multi-channel model pays for itself visually: the fan running afternoons
+ * above the ceiling light running evenings is a fact you can read in about a second, and a
+ * single merged bar would throw it away entirely.
+ *
+ * Bands are 10 dp with 2 dp between them — thin enough that a five-gang stack still fits
+ * above the fold, thick enough that a single busy hour is not a hairline. Labels truncate at
+ * eight characters, which is a column width rather than a name: the row is identified by its
+ * position in the same order as the channel list directly above it.
+ *
+ * @param bands in plate order, the same order the channel rows are in.
+ */
+@Composable
+fun StackedDayTimeline(
+    bands: List<TimelineBand>,
+    modifier: Modifier = Modifier,
+) {
+    val colors = SmartHomeTheme.colors
+    if (bands.isEmpty() || bands.any { it.hourFractions.size != HoursInDay }) return
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(BandGap),
+    ) {
+        bands.forEach { band ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // One sentence per band (section 11), rather than one for the stack:
+                    // "the fan ran four hours" is the useful unit, not "the unit ran nine".
+                    .clearAndSetSemantics { contentDescription = band.spoken },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                Text(
+                    text = band.label.take(MaxLabelChars),
+                    style = AppType.label,
+                    color = colors.textSecondary,
+                    maxLines = 1,
+                    modifier = Modifier.width(LabelWidth),
+                )
+                Canvas(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(BandHeight)
+                        .clip(RoundedCornerShape(3.dp)),
+                ) {
+                    drawRect(color = colors.surfaceVariant)
+                    val hourWidth = size.width / HoursInDay
+                    band.hourFractions.forEachIndexed { hour, fraction ->
+                        if (fraction <= 0f) return@forEachIndexed
+                        drawRect(
+                            color = colors.stateOn,
+                            topLeft = Offset(hour * hourWidth, 0f),
+                            size = Size(hourWidth * fraction.coerceIn(0f, 1f), size.height),
+                        )
+                    }
+                }
+            }
+        }
+
+        // One axis for the whole stack, inset by the label column so the hours line up with
+        // the bands rather than with the row.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            Spacer(modifier = Modifier.width(LabelWidth))
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                AxisLabels.forEach { label ->
+                    Text(text = label, style = AppType.label, color = colors.textSecondary)
+                }
+            }
+        }
+    }
+}
+
 private val BarHeight = 32.dp
+private val BandHeight = 10.dp
+private val BandGap = 2.dp
+private val LabelWidth = 64.dp
+
+/** Section 6 truncates band labels to eight characters. */
+private const val MaxLabelChars = 8
 
 private val AxisLabels = listOf("12a", "6a", "12p", "6p", "12a")
