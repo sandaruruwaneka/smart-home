@@ -94,10 +94,20 @@ class ScheduleSheetViewModel(
             .map { it?.zoneId ?: ZoneId.systemDefault() }
             .distinctUntilChanged()
 
+        // The owner comes off the device document rather than from a second auth lookup.
+        // The filter is not belt-and-braces: Firestore rules are not filters, so a query
+        // without it is refused outright and the whole sheet fails to load.
+        val usageStream = deviceStream
+            .map { it?.value?.ownerUid }
+            .distinctUntilChanged()
+            .flatMapLatest { uid ->
+                if (uid == null) flowOf(emptyList()) else usageEvents.observeForDevice(uid, deviceId)
+            }
+
         return combine(
             deviceStream,
             floorStream,
-            usageEvents.observeForDevice(deviceId),
+            usageStream,
             zoneStream,
             clock(),
         ) { device, floor, events, zone, nowMillis ->

@@ -179,8 +179,10 @@ fun FloorPlanCanvas(
     val colors = SmartHomeTheme.colors
     val density = LocalDensity.current
 
-    val painter = state.planImageUrl?.takeIf { it.isNotBlank() }
-        ?.let { rememberAsyncImagePainter(model = it) }
+    // Resource-first, then Coil -- see PlanImage. The bundled sample plans are referenced
+    // by `android.resource://` URI, which Coil does not resolve, so routing every plan
+    // through it left a floor with a sample plan rendering as a bare grid.
+    val painter = state.planImageUrl?.takeIf { it.isNotBlank() }?.let { planPainter(it) }
     val intrinsic = painter?.intrinsicSize
     val imageAspect = intrinsic
         ?.takeIf { it.isSpecified && it.width > 0f && it.height > 0f }

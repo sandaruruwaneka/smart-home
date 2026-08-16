@@ -292,7 +292,7 @@ class DeviceRepository(
         if (turnOn) {
             usageEvents.openInBatch(batch, device.ownerUid, device.id)
         } else {
-            usageEvents.findOpenEvent(device.id)?.let { usageEvents.closeInBatch(batch, it) }
+            usageEvents.findOpenEvent(device.ownerUid, device.id)?.let { usageEvents.closeInBatch(batch, it) }
         }
 
         batch.commit().await()
@@ -363,7 +363,7 @@ class DeviceRepository(
         if (turnOn) {
             usageEvents.openInBatch(batch, device.ownerUid, device.id, channelId)
         } else {
-            usageEvents.findOpenEvent(device.id, channelId)
+            usageEvents.findOpenEvent(device.ownerUid, device.id, channelId)
                 ?.let { usageEvents.closeInBatch(batch, it) }
         }
 
@@ -404,7 +404,7 @@ class DeviceRepository(
 
         // Read before the batch is built: the open rows to close are a query, and a query
         // cannot happen inside a batch.
-        val openEvents = if (turnOn) emptyList() else usageEvents.findOpenEvents(device.id)
+        val openEvents = if (turnOn) emptyList() else usageEvents.findOpenEvents(device.ownerUid, device.id)
 
         val batch = firestore.batch()
         changing.forEach { channel ->

@@ -84,13 +84,18 @@ class UsageEventRepository(
     /**
      * Every period for a device that is still open, at most one per channel.
      *
-     * Equality-only on purpose. Two equality filters are served by single-field indexes
+     * Equality-only on purpose. Three equality filters are served by single-field indexes
      * via a merge join, so this needs no composite index -- one less thing to forget
      * before the demo (section 12). Filtering by channel happens in memory afterwards,
      * over a result set bounded by the number of channels on the plate.
+     *
+     * `owner_uid` is required for the same reason as in [observeForDevice]: without it the
+     * rules cannot admit the query, and switching a device off would fail at the point of
+     * closing its usage period.
      */
-    suspend fun findOpenEvents(deviceId: String): List<UsageEvent> =
+    suspend fun findOpenEvents(ownerUid: String, deviceId: String): List<UsageEvent> =
         events
+            .whereEqualTo(UsageEventFields.OWNER_UID, ownerUid)
             .whereEqualTo(UsageEventFields.DEVICE_ID, deviceId)
             .whereEqualTo(UsageEventFields.ENDED_AT, null)
             .get()
@@ -98,16 +103,30 @@ class UsageEventRepository(
             .mapDocuments(UsageEvent::fromSnapshot)
 
     /** The open period for one channel, or for the device itself when [channelId] is null. */
-    suspend fun findOpenEvent(deviceId: String, channelId: String? = null): UsageEvent? =
-        findOpenEvents(deviceId).firstOrNull { it.channelId == channelId }
+    suspend fun findOpenEvent(
+        ownerUid: String,
+        deviceId: String,
+        channelId: String? = null,
+    ): UsageEvent? = findOpenEvents(ownerUid, deviceId).firstOrNull { it.channelId == channelId }
 
     /**
      * Recent history for one device, newest first.
      *
-     * Needs the `device_id ASC, started_at DESC` composite index.
+     * The `owner_uid` filter is not redundant with the security rules -- it is what makes
+     * the query legal at all. Firestore rules are not filters: a query it cannot prove will
+     * only return documents the caller owns is rejected outright, so filtering by
+     * `device_id` alone fails with PERMISSION_DENIED even when every matching document does
+     * belong to the caller.
+     *
+     * Needs the `owner_uid ASC, device_id ASC, started_at DESC` composite index.
      */
-    fun observeForDevice(deviceId: String, limit: Long = 50): Flow<List<UsageEvent>> =
+    fun observeForDevice(
+        ownerUid: String,
+        deviceId: String,
+        limit: Long = 50,
+    ): Flow<List<UsageEvent>> =
         events
+            .whereEqualTo(UsageEventFields.OWNER_UID, ownerUid)
             .whereEqualTo(UsageEventFields.DEVICE_ID, deviceId)
             .orderBy(UsageEventFields.STARTED_AT, Query.Direction.DESCENDING)
             .limit(limit)

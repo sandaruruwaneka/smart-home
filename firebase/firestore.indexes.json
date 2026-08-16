@@ -21,10 +21,11 @@
       ]
     },
     {
-      "//": "UsageEventRepository.observeForDevice -- one device's history, newest first.",
+      "//": "UsageEventRepository.observeForDevice -- one device's history, newest first. owner_uid leads because the security rules refuse any usage_events query that cannot be shown to return only the caller's documents; rules are not filters.",
       "collectionGroup": "usage_events",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "owner_uid", "order": "ASCENDING" },
         { "fieldPath": "device_id", "order": "ASCENDING" },
         { "fieldPath": "started_at", "order": "DESCENDING" }
       ]

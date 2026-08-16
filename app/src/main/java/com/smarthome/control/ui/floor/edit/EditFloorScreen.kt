@@ -1,5 +1,7 @@
 package com.smarthome.control.ui.floor.edit
 
+import com.smarthome.control.ui.floor.SamplePlan
+import com.smarthome.control.ui.floor.samplePlanUri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
