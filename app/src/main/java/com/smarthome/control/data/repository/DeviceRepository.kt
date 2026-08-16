@@ -371,6 +371,76 @@ class DeviceRepository(
     }
 
     /**
+     * Switches every channel of a gang plate at once, in a single batch.
+     *
+     * Not a loop over [setChannelStatus], and the reason is visible rather than theoretical:
+     * five separate commits arrive at every listening client as five separate snapshots, so
+     * the simulator and the app both render a cascade of rows flipping one after another.
+     * It looks like a bug in the channel addressing, which is precisely the thing this
+     * screen exists to demonstrate works.
+     *
+     * Channels already in the target state are skipped, so `All on` with one channel
+     * already on does not restart that channel's usage period or its `turned_on_at`.
+     * Channels in `ERROR` are left alone: the app cannot reach them, and writing `OFF` over
+     * a fault would clear a state nobody has dealt with.
+     *
+     * A five-gang unit costs eleven writes at most — every channel, its usage row, and the
+     * parent — so the 500-write batch limit is never in play here.
+     */
+    suspend fun setAllChannels(device: Device, currentChannels: List<Channel>, turnOn: Boolean) {
+        require(device.type == DeviceType.MULTI_SWITCH) { "${device.type} has no channels" }
+
+        val target = if (turnOn) DeviceState.ON else DeviceState.OFF
+        val changing = currentChannels.filter {
+            it.status != target && it.status != DeviceState.ERROR
+        }
+        if (changing.isEmpty()) return
+
+        val changingIds = changing.map { it.id }.toSet()
+        val projected = currentChannels.map {
+            if (it.id in changingIds) it.copy(status = target) else it
+        }
+        val derived = deriveMultiSwitchStatus(projected) ?: device.status
+
+        // Read before the batch is built: the open rows to close are a query, and a query
+        // cannot happen inside a batch.
+        val openEvents = if (turnOn) emptyList() else usageEvents.findOpenEvents(device.id)
+
+        val batch = firestore.batch()
+        changing.forEach { channel ->
+            stageStatusChange(
+                batch = batch,
+                reference = channelsOf(device.id).document(channel.id),
+                fields = ChannelStatusFields,
+                turnOn = turnOn,
+            )
+            if (turnOn) {
+                usageEvents.openInBatch(batch, device.ownerUid, device.id, channel.id)
+            } else {
+                openEvents.firstOrNull { it.channelId == channel.id }
+                    ?.let { usageEvents.closeInBatch(batch, it) }
+            }
+        }
+
+        batch.update(
+            devices.document(device.id),
+            buildMap<String, Any?> {
+                put(DeviceFields.STATUS, derived.name)
+                put(DeviceFields.LAST_CHANGED_AT, FieldValue.serverTimestamp())
+                put(DeviceFields.LAST_CHANGED_BY, ChangeSource.APP.name)
+                when {
+                    derived == DeviceState.ON && device.status != DeviceState.ON ->
+                        put(DeviceFields.TURNED_ON_AT, FieldValue.serverTimestamp())
+                    derived != DeviceState.ON ->
+                        put(DeviceFields.TURNED_ON_AT, null)
+                }
+            },
+        )
+
+        batch.commit().await()
+    }
+
+    /**
      * Deletes a device along with its channels and its usage history.
      *
      * Soft-delete is not used, and the cascade is part of the contract: an orphaned

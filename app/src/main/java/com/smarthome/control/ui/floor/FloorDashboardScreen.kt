@@ -73,6 +73,7 @@ import com.smarthome.control.ui.components.EmptyState
 import com.smarthome.control.ui.components.formatDuration
 import com.smarthome.control.ui.components.LabeledTextField
 import com.smarthome.control.ui.components.PriorityContainer
+import com.smarthome.control.ui.device.MultiSwitchControlSheet
 import com.smarthome.control.ui.device.OutletControlSheet
 import com.smarthome.control.ui.model.DeviceState
 import com.smarthome.control.ui.model.DeviceType
@@ -174,15 +175,15 @@ internal fun FloorDashboardContent(
      * One way into a device's controls, wherever the tap came from — a marker, the hazard
      * strip, the banner, or the quick-actions sheet.
      *
-     * Outlets open their sheet here rather than through [onOpenDevice], because the sheet
-     * is a continuation of this screen: it sits over the plan, and dismissing it has to
-     * clear the marker's selection ring, which only this composable can do. The other three
-     * types still call out — their sheets are screens 06 and 07.
+     * The sheets open here rather than through [onOpenDevice], because each one is a
+     * continuation of this screen: it sits over the plan, and dismissing it has to clear the
+     * marker's selection ring, which only this composable can do. Appliances, lights and
+     * cameras still call out — their sheets are screen 07.
      */
     val openDevice: (String) -> Unit = { deviceId ->
         selectedDeviceId = deviceId
         val marker = state.markers.firstOrNull { it.deviceId == deviceId }
-        if (marker != null && marker.type == DeviceType.OUTLET) {
+        if (marker != null && marker.type in SheetTypes) {
             sheetForDevice = marker
         } else {
             onOpenDevice(deviceId)
@@ -358,17 +359,33 @@ internal fun FloorDashboardContent(
         DeviceDetailsDialog(marker = marker, onDismiss = { detailsFor = null })
     }
 
-    // Screen 04. Dismissing it clears the selection ring, which is the other half of the
-    // marker tap that opened it.
+    // Screens 04 and 06. Dismissing either clears the selection ring, which is the other
+    // half of the marker tap that opened it.
     sheetForDevice?.let { marker ->
-        OutletControlSheet(
-            deviceId = marker.deviceId,
-            onDismiss = { sheetForDevice = null; selectedDeviceId = null },
-            onMoveDevice = { sheetForDevice = null; selectedDeviceId = null; onEditFloor() },
-            // Per-device history is the Reports screen, which is prompt 11. This goes the
-            // same nowhere the Reports tab does rather than to an invented placeholder.
-            onViewHistory = { onNavigate(AppDestination.Reports) },
-        )
+        val dismiss = { sheetForDevice = null; selectedDeviceId = null }
+        val move = { dismiss(); onEditFloor() }
+        // Per-device history is the Reports screen, which is prompt 11. This goes the same
+        // nowhere the Reports tab does rather than to an invented placeholder.
+        val history = { _: String -> onNavigate(AppDestination.Reports) }
+
+        when (marker.type) {
+            DeviceType.OUTLET -> OutletControlSheet(
+                deviceId = marker.deviceId,
+                onDismiss = dismiss,
+                onMoveDevice = { move() },
+                onViewHistory = history,
+            )
+
+            DeviceType.MULTI_SWITCH -> MultiSwitchControlSheet(
+                deviceId = marker.deviceId,
+                onDismiss = dismiss,
+                onMoveDevice = { move() },
+                onViewHistory = history,
+            )
+
+            // Unreachable: only the types in SheetTypes ever get here.
+            else -> Unit
+        }
     }
 
     if (confirmingTurnAllOff) {
@@ -861,6 +878,15 @@ private fun RenameFloorDialog(
         },
     )
 }
+
+/**
+ * The device types whose control sheet is built and hosted here.
+ *
+ * Appliances, lights and cameras are screen 07 and still call out to [onOpenDevice]. Listing
+ * what exists rather than excluding what does not means adding the next sheet is one entry
+ * here plus one branch, and forgetting either is a compile error rather than a dead tap.
+ */
+private val SheetTypes = setOf(DeviceType.OUTLET, DeviceType.MULTI_SWITCH)
 
 // ---------------------------------------------------------------------------
 // Artboards — the section 12 deliverable

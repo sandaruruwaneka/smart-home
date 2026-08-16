@@ -121,7 +121,7 @@ fun OutletControlSheet(
         shape = AppShapes.bottomSheet,
         containerColor = colors.surface,
         contentColor = colors.textPrimary,
-        scrimColor = colors.background.copy(alpha = 0.6f),
+        scrimColor = colors.background.copy(alpha = ScrimAlpha),
         dragHandle = { SheetDragHandle() },
     ) {
         OutletSheetContent(
@@ -174,7 +174,7 @@ internal fun OutletSheetContent(
         )
 
         if (state.loadError != null) {
-            LoadFailure(message = state.loadError, onRetry = onRetry)
+            SheetLoadFailure(message = state.loadError, onRetry = onRetry)
             return@Column
         }
 
@@ -193,13 +193,7 @@ internal fun OutletSheetContent(
         UsageSection(state = state)
 
         // ---- slot 5: metadata footer -----------------------------------------
-        state.lastChangedMillis?.let { millis ->
-            Text(
-                text = "Last changed ${relativeTime(millis, state.nowMillis)}",
-                style = AppType.label,
-                color = colors.textSecondary,
-            )
-        }
+        SheetFooter(lastChangedMillis = state.lastChangedMillis, nowMillis = state.nowMillis)
     }
 
     if (renaming) {
@@ -211,8 +205,10 @@ internal fun OutletSheetContent(
     }
 
     if (confirmingDelete) {
-        DeleteDeviceDialog(
-            deviceName = state.deviceName,
+        SheetConfirmDialog(
+            title = "Delete ${state.deviceName}?",
+            body = "Its usage history goes with it. This can't be undone.",
+            confirmLabel = "Delete",
             onDismiss = { confirmingDelete = false },
             onConfirm = { confirmingDelete = false; onDelete() },
         )
@@ -232,72 +228,17 @@ private fun IdentityRow(
     onClearError: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val colors = SmartHomeTheme.colors
-    var menuOpen by remember { mutableStateOf(false) }
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = state.deviceName,
-                style = AppType.display,
-                color = colors.textPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = state.locationLine,
-                style = AppType.label,
-                color = colors.textSecondary,
-            )
-        }
-
-        Box {
-            IconButton(onClick = { menuOpen = true }) {
-                Icon(
-                    Icons.Rounded.MoreVert,
-                    contentDescription = "More actions",
-                    tint = colors.textSecondary,
-                )
+    SheetIdentity(name = state.deviceName, subtitle = state.locationLine) {
+        SheetOverflowButton { dismiss ->
+            SheetMenuItem("Rename") { dismiss(); onRename() }
+            SheetMenuItem("Move to another cell") { dismiss(); onMove() }
+            SheetMenuItem("View history") { dismiss(); onViewHistory() }
+            // Only offered when there is a fault to clear. An action that is always present
+            // and usually inert teaches the user to stop reading the menu.
+            if (state.state == DeviceState.ERROR) {
+                SheetMenuItem("Clear error") { dismiss(); onClearError() }
             }
-            DropdownMenu(
-                expanded = menuOpen,
-                onDismissRequest = { menuOpen = false },
-                containerColor = colors.surface,
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Rename", style = AppType.body, color = colors.textPrimary) },
-                    onClick = { menuOpen = false; onRename() },
-                )
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            "Move to another cell",
-                            style = AppType.body,
-                            color = colors.textPrimary,
-                        )
-                    },
-                    onClick = { menuOpen = false; onMove() },
-                )
-                DropdownMenuItem(
-                    text = { Text("View history", style = AppType.body, color = colors.textPrimary) },
-                    onClick = { menuOpen = false; onViewHistory() },
-                )
-                // Only offered when there is a fault to clear. An action that is always
-                // present and usually inert teaches the user to stop reading the menu.
-                if (state.state == DeviceState.ERROR) {
-                    DropdownMenuItem(
-                        text = { Text("Clear error", style = AppType.body, color = colors.textPrimary) },
-                        onClick = { menuOpen = false; onClearError() },
-                    )
-                }
-                DropdownMenuItem(
-                    text = { Text("Delete device", style = AppType.body, color = colors.stateError) },
-                    onClick = { menuOpen = false; onDelete() },
-                )
-            }
+            SheetMenuItem("Delete device", destructive = true) { dismiss(); onDelete() }
         }
     }
 }
@@ -485,12 +426,12 @@ private fun UsageSection(state: OutletSheetUiState) {
     val usage = state.usage
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        Text(text = "TODAY", style = AppType.label, color = colors.textSecondary)
+        SheetSectionHeader("TODAY")
 
         if (usage == null) {
             // Section 5: one line, no empty chart. A 24-segment bar with nothing in it
             // looks like a rendering failure rather than a quiet day.
-            Text(text = "Not used today.", style = AppType.body, color = colors.textSecondary)
+            NoUsageLine()
             return@Column
         }
 
@@ -517,114 +458,10 @@ private fun UsageSection(state: OutletSheetUiState) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Chrome
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun SheetDragHandle() {
-    val colors = SmartHomeTheme.colors
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = Spacing.sm),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier = Modifier
-                .width(HandleWidth)
-                .height(HandleHeight)
-                .background(colors.outline, RoundedCornerShape(percent = 50)),
-        )
-    }
-}
-
-@Composable
-private fun LoadFailure(message: String, onRetry: () -> Unit) {
-    val colors = SmartHomeTheme.colors
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        Text(text = message, style = AppType.body, color = colors.stateError)
-        TextButton(onClick = onRetry) {
-            Text("Try again", style = AppType.label, color = colors.primary)
-        }
-    }
-}
-
-@Composable
-private fun RenameDeviceDialog(
-    currentName: String,
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit,
-) {
-    val colors = SmartHomeTheme.colors
-    var name by remember { mutableStateOf(currentName) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = colors.surface,
-        titleContentColor = colors.textPrimary,
-        title = { Text("Rename device", style = AppType.sectionHeader) },
-        text = {
-            LabeledTextField(label = "Device name", value = name, onValueChange = { name = it })
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(name) }, enabled = name.isNotBlank()) {
-                Text("Save", style = AppType.label, color = colors.primary)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", style = AppType.label, color = colors.textSecondary)
-            }
-        },
-    )
-}
-
-/**
- * Names the device it is about to delete.
- *
- * `Delete this device?` is a question the user can answer correctly and still be wrong,
- * because the sheet behind the dialog is covered by it. The name is the whole point.
- */
-@Composable
-private fun DeleteDeviceDialog(
-    deviceName: String,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
-) {
-    val colors = SmartHomeTheme.colors
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = colors.surface,
-        titleContentColor = colors.textPrimary,
-        title = { Text("Delete $deviceName?", style = AppType.sectionHeader) },
-        text = {
-            Text(
-                "Its usage history goes with it. This can't be undone.",
-                style = AppType.body,
-                color = colors.textSecondary,
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("Delete", style = AppType.label, color = colors.stateError)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", style = AppType.label, color = colors.textSecondary)
-            }
-        },
-    )
-}
-
 private val ControlCardHeight = 96.dp
 private val ControlIconSize = 32.dp
 private val CardRadius = 16.dp
 private val PendingBarHeight = 2.dp
-private val HandleWidth = 32.dp
-private val HandleHeight = 4.dp
 private const val PendingAlpha = 0.5f
 
 // ---------------------------------------------------------------------------
@@ -673,33 +510,18 @@ private val PreviewOn = OutletSheetUiState(
 @Composable
 private fun Artboard(state: OutletSheetUiState, dark: Boolean = true, isOffline: Boolean = false) {
     SmartHomeTheme(darkTheme = dark) {
-        val colors = SmartHomeTheme.colors
-        // The real sheet is hosted by ModalBottomSheet, which does not render in the
-        // preview pane. This is the same surface, shape and handle, over the same scrim.
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(colors.background.copy(alpha = 0.6f)),
-            contentAlignment = Alignment.BottomCenter,
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(colors.surface, AppShapes.bottomSheet),
-            ) {
-                SheetDragHandle()
-                OutletSheetContent(
-                    state = state,
-                    isOffline = isOffline,
-                    onToggle = {},
-                    onClearError = {},
-                    onRename = {},
-                    onDelete = {},
-                    onMove = {},
-                    onViewHistory = {},
-                    onRetry = {},
-                )
-            }
+        SheetArtboardFrame {
+            OutletSheetContent(
+                state = state,
+                isOffline = isOffline,
+                onToggle = {},
+                onClearError = {},
+                onRename = {},
+                onDelete = {},
+                onMove = {},
+                onViewHistory = {},
+                onRetry = {},
+            )
         }
     }
 }
