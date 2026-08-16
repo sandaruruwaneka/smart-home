@@ -16,6 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
@@ -52,6 +54,15 @@ fun DayTimeline(
      * working, which is exactly the artefact worth having on screen during the demo.
      */
     cutoffHours: Set<Int> = emptySet(),
+    /**
+     * The scheduled window as (start, sweep) fractions of the day, outlined behind the bars
+     * as a 1 dp `primary` dashed region (screen prompt 08 section 10).
+     *
+     * Intended against actual, in one graphic. When they line up the user sees the schedule
+     * working; when they diverge they see exactly which hour somebody intervened in — which
+     * is the same question the override chip answers, asked about the past instead of now.
+     */
+    scheduledWindow: Pair<Float, Float>? = null,
 ) {
     val colors = SmartHomeTheme.colors
     if (hourFractions.size != HoursInDay) return
@@ -80,6 +91,30 @@ fun DayTimeline(
                     topLeft = Offset(hour * hourWidth, 0f),
                     size = Size(hourWidth * fraction.coerceIn(0f, 1f), size.height),
                 )
+            }
+
+            // Drawn over the bars rather than under them: it is an outline, and an outline
+            // hidden behind the thing it outlines is just a wasted pixel row. A window
+            // crossing midnight becomes two segments here, which on a linear axis it
+            // genuinely is -- the ring above is where it reads as one.
+            scheduledWindow?.let { (start, sweep) ->
+                val dashes = PathEffect.dashPathEffect(floatArrayOf(DashOn, DashOff))
+                val startX = start.coerceIn(0f, 1f) * size.width
+                val width = sweep.coerceIn(0f, 1f) * size.width
+                val segments = if (startX + width <= size.width) {
+                    listOf(startX to width)
+                } else {
+                    listOf(startX to (size.width - startX), 0f to (startX + width - size.width))
+                }
+                segments.forEach { (x, w) ->
+                    if (w <= 0f) return@forEach
+                    drawRect(
+                        color = colors.primary,
+                        topLeft = Offset(x, 0f),
+                        size = Size(w, size.height),
+                        style = Stroke(width = OutlineWidth.toPx(), pathEffect = dashes),
+                    )
+                }
             }
 
             // Drawn last so a tick is never buried under the amber it sits on.
@@ -191,6 +226,9 @@ fun StackedDayTimeline(
 
 private val BarHeight = 32.dp
 private val TickHeight = 2.dp
+private val OutlineWidth = 1.dp
+private const val DashOn = 6f
+private const val DashOff = 4f
 private val BandHeight = 10.dp
 private val BandGap = 2.dp
 private val LabelWidth = 64.dp
