@@ -82,6 +82,19 @@ fun rememberIsOffline(): Boolean {
 private fun ConnectivityManager.hasValidatedInternet(): Boolean {
     val capabilities = runCatching { getNetworkCapabilities(activeNetwork) }.getOrNull()
         ?: return false
-    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+
+    if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return false
+
+    // A VPN is the exception, and it is not a rare one -- plenty of phones run one all day.
+    // When a VPN is up it becomes the active network, but `NET_CAPABILITY_VALIDATED` stays
+    // on the underlying wifi or mobile transport it tunnels over, so the VPN's own
+    // capabilities report an unvalidated connection. Demanding validation here declares a
+    // working phone offline, which is exactly the wrong answer: it dims the floor plan,
+    // disables the timezone row and puts "Showing last known state" over live data.
+    //
+    // The tunnel has already been established through a real connection, so `INTERNET` on a
+    // VPN transport is evidence enough.
+    if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) return true
+
+    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
 }
