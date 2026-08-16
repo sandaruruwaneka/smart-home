@@ -27,11 +27,17 @@ class AlertRepository(
      * Every alert for the user, newest first.
      *
      * Needs the `owner_uid ASC, created_at DESC` composite index.
+     *
+     * Bounded, and deliberately so. At this project's scale a second page will never be
+     * reached, but an unbounded collection listener is the most common way to run up a
+     * Firestore bill: it re-reads every document in the collection on every reconnect, and
+     * alerts are the one collection here that grows forever with no retention policy.
      */
-    fun observeAlerts(ownerUid: String): Flow<List<Alert>> =
+    fun observeAlerts(ownerUid: String, limit: Long = DEFAULT_PAGE): Flow<List<Alert>> =
         alerts
             .whereEqualTo(AlertFields.OWNER_UID, ownerUid)
             .orderBy(AlertFields.CREATED_AT, Query.Direction.DESCENDING)
+            .limit(limit)
             .snapshotFlow()
             .map { it.mapDocuments(Alert::fromSnapshot) }
 
@@ -66,5 +72,8 @@ class AlertRepository(
 
     private companion object {
         const val MAX_BATCH_WRITES = 500
+
+        /** Section 9 of screen prompt 09 fixes the page at 50. */
+        const val DEFAULT_PAGE = 50L
     }
 }
