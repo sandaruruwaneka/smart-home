@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import com.smarthome.control.ui.alerts.AlertsScreen
 import com.smarthome.control.ui.auth.LoginScreen
 import com.smarthome.control.ui.floor.FloorDashboardScreen
 import com.smarthome.control.ui.floor.edit.EditFloorScreen
@@ -23,7 +24,7 @@ import com.smarthome.control.ui.theme.SmartHomeTheme
  * SCS 3311 — Smart Home Monitoring & Control System.
  *
  * Screens arrive in the build order given in master prompt section 14. Login, the floor
- * list, the floor dashboard, the outlet sheet and the floor editor are built.
+ * list, the floor dashboard, all four device sheets, the floor editor and Alerts are built.
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,8 +52,8 @@ class MainActivity : ComponentActivity() {
  * - `Settings` opens the design-system gallery. It is a placeholder, and an honest one: it
  *   keeps the section 13 deliverable reachable from inside the running app, and system
  *   back returns here.
- * - `Alerts` and `Reports` do nothing yet. A tab that navigates to an invented placeholder
- *   would be harder to notice as unfinished than one that does not move.
+ * - `Alerts` is real. `Reports` still does nothing: a tab that navigates to an invented
+ *   placeholder would be harder to notice as unfinished than one that does not move.
  *
  * The editor is the one destination that carries a *nullable* argument: a null floor id is
  * create mode. Two booleans would let both be true at once, which is a state the editor has
@@ -66,9 +67,14 @@ private fun SmartHomeApp() {
     var editing by rememberSaveable(stateSaver = EditorRouteSaver) {
         mutableStateOf<EditorRoute?>(null)
     }
+    var showingAlerts by rememberSaveable { mutableStateOf(false) }
 
     val goHome: (AppDestination) -> Unit = { destination ->
-        if (destination == AppDestination.Settings) showingGallery = true
+        when (destination) {
+            AppDestination.Settings -> showingGallery = true
+            AppDestination.Alerts -> showingAlerts = true
+            else -> Unit
+        }
     }
 
     when {
@@ -80,6 +86,22 @@ private fun SmartHomeApp() {
             // The gallery applies its own theme, since it has a light/dark toggle of its own.
             BackHandler { showingGallery = false }
             DesignSystemGallery()
+        }
+
+        showingAlerts -> SmartHomeTheme {
+            BackHandler { showingAlerts = false }
+            AlertsScreen(
+                // An alert is read to find out which device it is about, so tapping one goes
+                // to that device's floor rather than to the log entry it came from.
+                onOpenDevice = { _, floorId ->
+                    showingAlerts = false
+                    openFloorId = floorId
+                },
+                onNavigate = { destination ->
+                    showingAlerts = destination == AppDestination.Alerts
+                    if (destination != AppDestination.Alerts) goHome(destination)
+                },
+            )
         }
 
         editing != null -> SmartHomeTheme {
