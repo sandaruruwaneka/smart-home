@@ -13,15 +13,20 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -29,18 +34,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.smarthome.control.ui.model.DeviceState
 import com.smarthome.control.ui.model.DeviceType
 import com.smarthome.control.ui.theme.AppBorders
+import com.smarthome.control.ui.theme.AppType
 import com.smarthome.control.ui.theme.SmartHomeTheme
 import com.smarthome.control.ui.theme.Spacing
 import com.smarthome.control.ui.theme.rememberReducedMotion
+import kotlinx.coroutines.delay
 
-/** The visual square. Kept at 40 dp so a 20-cell grid fits a 412 dp frame. */
-private val MarkerSize = 40.dp
+/** The default visual square. Kept at 40 dp so a 20-cell grid fits a 412 dp frame. */
+val DefaultMarkerSize = 40.dp
 
-/** Corner radius for chips and device markers (section 7). */
+/** Corner radius for chips and device markers (section 7), at the default size. */
 private val MarkerRadius = 12.dp
 
 /**
@@ -70,6 +79,18 @@ private val MarkerRadius = 12.dp
  * @param hazardActive true only for an APPLIANCE currently running against its limit
  * @param selected the user has tapped this marker and its controls are open
  * @param onClick null renders a non-interactive marker, as used in the legend
+ * @param size the visual square. Screen prompt 03 sizes markers from the floor plan's own
+ *   cell size, so this varies with the grid and the zoom level; radius, icon and badge all
+ *   scale from it. The touch target still grows to 48 dp underneath.
+ * @param channelBadge the `2/3` a switch bank carries in its corner, giving how many of
+ *   its channels are on. Null on every other type.
+ * @param pendingWrite the app has written a new state and Firestore has not confirmed it
+ *   yet. The marker shows the new state immediately with a half-strength border, so the
+ *   tap feels instant without claiming more certainty than there is.
+ * @param externalChangeToken changes identity when this device is changed by somebody
+ *   *else* — the simulator, the worker, another phone. That flashes the border to
+ *   `primary` once. A locally initiated change passes an unchanged token and does not
+ *   flash: the user already knows what they touched.
  */
 @Composable
 fun DeviceMarker(
@@ -80,12 +101,33 @@ fun DeviceMarker(
     hazardActive: Boolean = false,
     selected: Boolean = false,
     enabled: Boolean = true,
+    size: Dp = DefaultMarkerSize,
+    channelBadge: String? = null,
+    pendingWrite: Boolean = false,
+    externalChangeToken: Any? = null,
     onClick: (() -> Unit)? = null,
 ) {
     val colors = SmartHomeTheme.colors
     val reducedMotion = rememberReducedMotion()
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
+
+    // Everything inside scales with the marker so a 32 dp marker on a dense grid is the
+    // same design, not a clipped version of a 40 dp one.
+    val radius = (size * 0.3f).coerceAtMost(MarkerRadius)
+    val iconSize = size * 0.5f
+
+    // The external-change flash (screen prompt 03 section 8). Suppressed under reduced
+    // motion, where a border that changes colour twice in half a second is exactly the
+    // kind of movement the setting exists to remove.
+    var flashing by remember { mutableStateOf(false) }
+    LaunchedEffect(externalChangeToken) {
+        if (externalChangeToken != null && !reducedMotion) {
+            flashing = true
+            delay(ExternalFlashMillis)
+            flashing = false
+        }
+    }
 
     val accent = when (state) {
         DeviceState.ON -> colors.stateOn
@@ -126,8 +168,16 @@ fun DeviceMarker(
 
     // 200 ms colour cross-fade on state change (section 10). Instant under reduced
     // motion; the colour still changes, only the transition is dropped.
+    //
+    // The flash and the pending-write treatment both ride this one animation rather than
+    // painting a second border on top, so a marker that is confirmed mid-flash resolves
+    // smoothly instead of jumping between two overlaid edges.
     val animatedBorder by animateColorAsState(
-        targetValue = borderColor,
+        targetValue = when {
+            flashing -> colors.primary.copy(alpha = 0.6f)
+            pendingWrite -> borderColor.copy(alpha = 0.5f)
+            else -> borderColor
+        },
         animationSpec = tween(if (reducedMotion) 0 else 200),
         label = "DeviceMarker border",
     )
@@ -165,7 +215,9 @@ fun DeviceMarker(
     }
 
     val clickable = onClick != null && enabled
-    val touchTargetPadding = (Spacing.minTouchTarget - MarkerSize) / 2
+    // Never negative: on a zoomed-in plan the marker can be larger than the minimum touch
+    // target, and a negative padding would pull its neighbours' hit areas into it.
+    val touchTargetPadding = ((Spacing.minTouchTarget - size) / 2).coerceAtLeast(0.dp)
 
     Box(
         modifier = modifier
@@ -191,41 +243,42 @@ fun DeviceMarker(
         if (pulseAlpha > 0f) {
             Box(
                 Modifier
-                    .requiredSize(MarkerSize + 8.dp)
+                    .requiredSize(size + 8.dp)
                     .background(
                         colors.stateOn.copy(alpha = pulseAlpha * 0.5f),
-                        RoundedCornerShape(MarkerRadius + 4.dp),
+                        RoundedCornerShape(radius + 4.dp),
                     ),
+            )
+        }
+
+        // Selection ring, 4 dp outside the state border rather than on top of it, so the
+        // two edges never compete: state is the inner edge, selection is the outer one.
+        if (selected) {
+            Box(
+                Modifier
+                    .requiredSize(size + 8.dp)
+                    .border(2.dp, colors.primary, RoundedCornerShape(radius + 4.dp)),
             )
         }
 
         Box(
             modifier = Modifier
-                .requiredSize(MarkerSize)
+                .requiredSize(size)
                 .alpha(if (enabled) 1f else DisabledAlpha)
-                .background(fill, RoundedCornerShape(MarkerRadius))
+                .background(fill, RoundedCornerShape(radius))
                 // Pressed feedback is a tone shift, not a ripple — ripples on a dense
                 // floor plan read as the whole grid flickering. Drawn between the fill
                 // and the borders so it tints the face without dulling the state edge.
                 .background(
                     if (pressed) colors.textPrimary.copy(alpha = 0.08f) else Color.Transparent,
-                    RoundedCornerShape(MarkerRadius),
+                    RoundedCornerShape(radius),
                 )
                 .stateBorder(
                     color = animatedBorder,
                     // Reduced motion trades the pulse for a permanently emphasised border.
                     width = if (showPulse && reducedMotion) AppBorders.emphasis else borderWidth,
-                    cornerRadius = MarkerRadius,
+                    cornerRadius = radius,
                     dashed = state == DeviceState.DISCONNECTED,
-                )
-                .then(
-                    // Selection ring sits outside the state border so the two never
-                    // compete: state is the inner edge, selection is the outer one.
-                    if (selected) {
-                        Modifier.border(2.dp, colors.primary, RoundedCornerShape(MarkerRadius))
-                    } else {
-                        Modifier
-                    },
                 ),
             contentAlignment = Alignment.Center,
         ) {
@@ -239,11 +292,34 @@ fun DeviceMarker(
                 },
                 contentDescription = null,
                 tint = animatedIcon,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(iconSize),
             )
+        }
+
+        // The switch bank's `2/3`. Sits on the corner of the marker, tinted amber only
+        // when something is actually on -- an all-off gang plate is an ordinary OFF
+        // device and its badge should not be the brightest thing in the cell.
+        if (channelBadge != null && size >= 32.dp) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 4.dp, y = (-4).dp)
+                    .background(colors.surface, RoundedCornerShape(6.dp))
+                    .border(AppBorders.hairline, colors.outline, RoundedCornerShape(6.dp))
+                    .padding(horizontal = 3.dp),
+            ) {
+                Text(
+                    text = channelBadge,
+                    style = AppType.label.copy(fontSize = 9.sp, letterSpacing = 0.sp),
+                    color = if (state == DeviceState.ON) colors.stateOn else colors.textSecondary,
+                )
+            }
         }
     }
 }
+
+/** How long the external-change flash holds before settling back (screen prompt 03 §8). */
+private const val ExternalFlashMillis = 400L
 
 // ---------------------------------------------------------------------------
 // Previews

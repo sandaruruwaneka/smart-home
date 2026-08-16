@@ -58,6 +58,14 @@ fun CountdownRing(
     modifier: Modifier = Modifier,
     size: Dp = 96.dp,
     strokeWidth: Dp = 8.dp,
+    /**
+     * False draws the arc alone.
+     *
+     * For the floor dashboard's hazard chips, where the ring is 28 dp and the remaining
+     * time sits beside it rather than inside it — at that diameter the centre holds about
+     * four pixels, and a countdown nobody can read is just a decoration.
+     */
+    showLabel: Boolean = true,
 ) {
     val colors = SmartHomeTheme.colors
     val reducedMotion = rememberReducedMotion()
@@ -125,17 +133,19 @@ fun CountdownRing(
             )
         }
 
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = formatDuration(remaining),
-                style = AppType.numeric,
-                color = if (inFinalTenth) colors.stateError else colors.textPrimary,
-            )
-            Text(
-                text = "left",
-                style = AppType.label,
-                color = colors.textSecondary,
-            )
+        if (showLabel) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = formatDuration(remaining),
+                    style = AppType.numeric,
+                    color = if (inFinalTenth) colors.stateError else colors.textPrimary,
+                )
+                Text(
+                    text = "left",
+                    style = AppType.label,
+                    color = colors.textSecondary,
+                )
+            }
         }
     }
 }
