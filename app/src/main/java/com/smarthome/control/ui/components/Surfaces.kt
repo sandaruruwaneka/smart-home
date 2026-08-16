@@ -100,13 +100,22 @@ fun PriorityContainer(
         Box {
             content()
             if (barColor != null) {
-                Box(
-                    Modifier
-                        .align(Alignment.CenterStart)
-                        .fillMaxHeight()
-                        .width(AppBorders.hairline)
-                        .background(barColor),
-                )
+                // `matchParentSize` rather than `fillMaxHeight`, and the difference is not
+                // cosmetic. `fillMaxHeight` resolves against the *maximum* height offered,
+                // so a container placed where a lot of vertical space is available — a
+                // hazard chip in a Column above a weighted canvas, say — stretched the bar
+                // to that maximum and took the whole card with it, squeezing the floor plan
+                // off screen entirely. `matchParentSize` measures against the size the Box
+                // actually settled on and contributes nothing to it.
+                Box(modifier = Modifier.matchParentSize()) {
+                    Box(
+                        Modifier
+                            .align(Alignment.CenterStart)
+                            .fillMaxHeight()
+                            .width(AppBorders.hairline)
+                            .background(barColor),
+                    )
+                }
             }
         }
     }
