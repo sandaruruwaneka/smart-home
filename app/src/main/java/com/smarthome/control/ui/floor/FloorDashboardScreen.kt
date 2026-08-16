@@ -76,6 +76,7 @@ import com.smarthome.control.ui.components.PriorityContainer
 import com.smarthome.control.ui.device.HazardControlSheet
 import com.smarthome.control.ui.device.MultiSwitchControlSheet
 import com.smarthome.control.ui.device.OutletControlSheet
+import com.smarthome.control.ui.device.ScheduleControlSheet
 import com.smarthome.control.ui.model.DeviceState
 import com.smarthome.control.ui.model.DeviceType
 import com.smarthome.control.ui.model.PriorityTier
@@ -385,6 +386,13 @@ internal fun FloorDashboardContent(
             )
 
             DeviceType.APPLIANCE -> HazardControlSheet(
+                deviceId = marker.deviceId,
+                onDismiss = dismiss,
+                onMoveDevice = { move() },
+                onViewHistory = history,
+            )
+
+            DeviceType.LIGHT -> ScheduleControlSheet(
                 deviceId = marker.deviceId,
                 onDismiss = dismiss,
                 onMoveDevice = { move() },
@@ -894,7 +902,8 @@ private fun RenameFloorDialog(
  * what exists rather than excluding what does not means adding the next sheet is one entry
  * here plus one branch, and forgetting either is a compile error rather than a dead tap.
  */
-private val SheetTypes = setOf(DeviceType.OUTLET, DeviceType.MULTI_SWITCH, DeviceType.APPLIANCE)
+private val SheetTypes =
+    setOf(DeviceType.OUTLET, DeviceType.MULTI_SWITCH, DeviceType.APPLIANCE, DeviceType.LIGHT)
 
 // ---------------------------------------------------------------------------
 // Artboards — the section 12 deliverable
