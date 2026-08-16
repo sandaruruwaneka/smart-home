@@ -20,13 +20,15 @@ import com.smarthome.control.ui.floor.edit.EditFloorScreen
 import com.smarthome.control.ui.gallery.DesignSystemGallery
 import com.smarthome.control.ui.home.FloorListScreen
 import com.smarthome.control.ui.navigation.AppDestination
+import com.smarthome.control.ui.reports.ReportsScreen
 import com.smarthome.control.ui.theme.SmartHomeTheme
 
 /**
  * SCS 3311 — Smart Home Monitoring & Control System.
  *
- * Screens arrive in the build order given in master prompt section 14. Login, the floor
- * list, the floor dashboard, all four device sheets, the floor editor and Alerts are built.
+ * Screens arrive in the build order given in master prompt section 14. All eleven are
+ * built; only the design-system gallery behind `Settings` is still standing in for a
+ * screen of its own.
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,8 +56,8 @@ class MainActivity : ComponentActivity() {
  * - `Settings` opens the design-system gallery. It is a placeholder, and an honest one: it
  *   keeps the section 13 deliverable reachable from inside the running app, and system
  *   back returns here.
- * - `Alerts` is real. `Reports` still does nothing: a tab that navigates to an invented
- *   placeholder would be harder to notice as unfinished than one that does not move.
+ * - `Alerts` and `Reports` are both real. Every bottom-bar destination now goes somewhere,
+ *   which is the point at which this `when` has earned its replacement by a real graph.
  *
  * The editor is the one destination that carries a *nullable* argument: a null floor id is
  * create mode. Two booleans would let both be true at once, which is a state the editor has
@@ -72,11 +74,13 @@ private fun SmartHomeApp() {
     var showingAlerts by rememberSaveable { mutableStateOf(false) }
     var openCameraId by rememberSaveable { mutableStateOf<String?>(null) }
     var showingCameraWall by rememberSaveable { mutableStateOf(false) }
+    var showingReports by rememberSaveable { mutableStateOf(false) }
 
     val goHome: (AppDestination) -> Unit = { destination ->
         when (destination) {
             AppDestination.Settings -> showingGallery = true
             AppDestination.Alerts -> showingAlerts = true
+            AppDestination.Reports -> showingReports = true
             else -> Unit
         }
     }
@@ -111,6 +115,19 @@ private fun SmartHomeApp() {
                 onBack = { showingCameraWall = false },
                 onOpenCamera = { showingCameraWall = false; openCameraId = it },
                 onGoToFloors = { showingCameraWall = false; openFloorId = null },
+            )
+        }
+
+        showingReports -> SmartHomeTheme {
+            BackHandler { showingReports = false }
+            ReportsScreen(
+                // A device in the cutoffs list opens on its own floor, where its hazard
+                // sheet is one tap away -- adjusting the limit from the evidence.
+                onOpenDevice = { showingReports = false },
+                onNavigate = { destination ->
+                    showingReports = destination == AppDestination.Reports
+                    if (destination != AppDestination.Reports) goHome(destination)
+                },
             )
         }
 

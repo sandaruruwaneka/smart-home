@@ -124,6 +124,23 @@ class UsageEventRepository(
      * because the range applies to `started_at`. Reports that need "on during this window"
      * rather than "started during this window" should widen [since] and clip client-side.
      */
+    /**
+     * The same window as [observeSince], read once.
+     *
+     * Reports is the one screen in the app that deliberately holds no listener: it is a
+     * retrospective view, and re-aggregating a month of events every time somebody toggles
+     * a lamp would burn reads to redraw a chart nobody is watching change. A one-shot read
+     * plus a refresh button is the honest shape for that.
+     */
+    suspend fun getSince(ownerUid: String, since: Timestamp): List<UsageEvent> =
+        events
+            .whereEqualTo(UsageEventFields.OWNER_UID, ownerUid)
+            .whereGreaterThanOrEqualTo(UsageEventFields.STARTED_AT, since)
+            .orderBy(UsageEventFields.STARTED_AT, Query.Direction.DESCENDING)
+            .get()
+            .await()
+            .mapDocuments(UsageEvent::fromSnapshot)
+
     fun observeSince(ownerUid: String, since: Timestamp): Flow<List<UsageEvent>> =
         events
             .whereEqualTo(UsageEventFields.OWNER_UID, ownerUid)
