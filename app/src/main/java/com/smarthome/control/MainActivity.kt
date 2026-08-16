@@ -21,6 +21,12 @@ import com.smarthome.control.ui.gallery.DesignSystemGallery
 import com.smarthome.control.ui.home.FloorListScreen
 import com.smarthome.control.ui.navigation.AppDestination
 import com.smarthome.control.ui.reports.ReportsScreen
+import com.smarthome.control.ui.settings.Appearance
+import com.smarthome.control.ui.settings.AppearancePreference
+import com.smarthome.control.ui.settings.SettingsScreen
+import com.smarthome.control.ui.settings.isDark
+import com.smarthome.control.ui.settings.rememberAppearance
+import androidx.compose.ui.platform.LocalContext
 import com.smarthome.control.ui.theme.SmartHomeTheme
 
 /**
@@ -53,9 +59,9 @@ class MainActivity : ComponentActivity() {
  * Until then:
  *
  * - `Home` is the floor list, and tapping a floor opens its dashboard. Both are real.
- * - `Settings` opens the design-system gallery. It is a placeholder, and an honest one: it
- *   keeps the section 13 deliverable reachable from inside the running app, and system
- *   back returns here.
+ * - `Settings` is real, and the design-system gallery it used to stand in for now sits
+ *   behind a row inside it — the section 13 deliverable stays reachable from the running
+ *   app without a bottom-bar tab pretending to be it.
  * - `Alerts` and `Reports` are both real. Every bottom-bar destination now goes somewhere,
  *   which is the point at which this `when` has earned its replacement by a real graph.
  *
@@ -75,10 +81,16 @@ private fun SmartHomeApp() {
     var openCameraId by rememberSaveable { mutableStateOf<String?>(null) }
     var showingCameraWall by rememberSaveable { mutableStateOf(false) }
     var showingReports by rememberSaveable { mutableStateOf(false) }
+    var showingSettings by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    // The theme choice is a property of this phone rather than of the home, so it is read
+    // from local storage and threaded through every destination below.
+    val appearance = rememberAppearance()
+    val dark = appearance.value.isDark()
 
     val goHome: (AppDestination) -> Unit = { destination ->
         when (destination) {
-            AppDestination.Settings -> showingGallery = true
+            AppDestination.Settings -> showingSettings = true
             AppDestination.Alerts -> showingAlerts = true
             AppDestination.Reports -> showingReports = true
             else -> Unit
@@ -86,7 +98,7 @@ private fun SmartHomeApp() {
     }
 
     when {
-        !signedIn -> SmartHomeTheme {
+        !signedIn -> SmartHomeTheme(darkTheme = dark) {
             LoginScreen(onSignedIn = { signedIn = true })
         }
 
@@ -96,7 +108,7 @@ private fun SmartHomeApp() {
             DesignSystemGallery()
         }
 
-        openCameraId != null -> SmartHomeTheme {
+        openCameraId != null -> SmartHomeTheme(darkTheme = dark) {
             BackHandler { openCameraId = null }
             CameraScreen(
                 deviceId = requireNotNull(openCameraId),
@@ -109,7 +121,7 @@ private fun SmartHomeApp() {
             )
         }
 
-        showingCameraWall -> SmartHomeTheme {
+        showingCameraWall -> SmartHomeTheme(darkTheme = dark) {
             BackHandler { showingCameraWall = false }
             CameraWallScreen(
                 onBack = { showingCameraWall = false },
@@ -118,7 +130,35 @@ private fun SmartHomeApp() {
             )
         }
 
-        showingReports -> SmartHomeTheme {
+        showingSettings -> SmartHomeTheme(darkTheme = dark) {
+            BackHandler { showingSettings = false }
+            SettingsScreen(
+                appearance = appearance.value,
+                onAppearanceChange = { chosen ->
+                    appearance.value = chosen
+                    AppearancePreference.write(context, chosen)
+                },
+                onSignedOut = {
+                    // Everything resets: a second account signing in on this phone must not
+                    // land on the previous one's floor.
+                    signedIn = false
+                    showingSettings = false
+                    showingAlerts = false
+                    showingReports = false
+                    showingCameraWall = false
+                    openCameraId = null
+                    openFloorId = null
+                    editing = null
+                },
+                onNavigate = { destination ->
+                    showingSettings = destination == AppDestination.Settings
+                    if (destination != AppDestination.Settings) goHome(destination)
+                },
+                onOpenDesignSystem = { showingSettings = false; showingGallery = true },
+            )
+        }
+
+        showingReports -> SmartHomeTheme(darkTheme = dark) {
             BackHandler { showingReports = false }
             ReportsScreen(
                 // A device in the cutoffs list opens on its own floor, where its hazard
@@ -131,7 +171,7 @@ private fun SmartHomeApp() {
             )
         }
 
-        showingAlerts -> SmartHomeTheme {
+        showingAlerts -> SmartHomeTheme(darkTheme = dark) {
             BackHandler { showingAlerts = false }
             AlertsScreen(
                 // An alert is read to find out which device it is about, so tapping one goes
@@ -147,7 +187,7 @@ private fun SmartHomeApp() {
             )
         }
 
-        editing != null -> SmartHomeTheme {
+        editing != null -> SmartHomeTheme(darkTheme = dark) {
             // No BackHandler here: the editor installs its own, because a back press with
             // unsaved changes has to ask before it throws them away.
             EditFloorScreen(
@@ -156,7 +196,7 @@ private fun SmartHomeApp() {
             )
         }
 
-        openFloorId != null -> SmartHomeTheme {
+        openFloorId != null -> SmartHomeTheme(darkTheme = dark) {
             BackHandler { openFloorId = null }
             FloorDashboardScreen(
                 floorId = requireNotNull(openFloorId),
@@ -174,7 +214,7 @@ private fun SmartHomeApp() {
             )
         }
 
-        else -> SmartHomeTheme {
+        else -> SmartHomeTheme(darkTheme = dark) {
             FloorListScreen(
                 onOpenFloor = { openFloorId = it },
                 onAddFloor = { editing = EditorRoute.Create },
