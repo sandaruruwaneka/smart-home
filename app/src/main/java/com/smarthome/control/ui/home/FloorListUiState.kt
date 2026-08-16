@@ -3,11 +3,13 @@ package com.smarthome.control.ui.home
 import com.smarthome.control.data.model.Alert
 import com.smarthome.control.data.model.Device
 import com.smarthome.control.data.model.Floor
+import com.smarthome.control.ui.common.causeLine
+import com.smarthome.control.ui.common.createdAtMillisOr
+import com.smarthome.control.ui.common.iconType
 import com.smarthome.control.ui.components.AlertType as AlertIconType
 import com.smarthome.control.ui.model.DeviceState
 import com.smarthome.control.ui.model.PriorityTier
 import com.smarthome.control.ui.model.priorityTierOf
-import com.smarthome.control.data.model.AlertType
 import java.util.concurrent.TimeUnit
 
 /**
@@ -222,14 +224,14 @@ private fun Device.homeTier(nowMillis: Long): PriorityTier {
 
 private fun List<Alert>.toBanner(nowMillis: Long): HomeBanner? {
     val newest = firstOrNull() ?: return null
-    val createdAt = newest.createdAtMillis(nowMillis)
+    val createdAt = newest.createdAtMillisOr(nowMillis)
 
     return if (size == 1) {
         HomeBanner.Single(
             alertId = newest.id,
             deviceId = newest.deviceId,
             floorId = newest.floorId,
-            cause = newest.cause(),
+            cause = newest.causeLine(),
             reason = newest.message,
             createdAtMillis = createdAt,
         )
@@ -238,34 +240,11 @@ private fun List<Alert>.toBanner(nowMillis: Long): HomeBanner? {
     }
 }
 
-/**
- * What happened, in the user's terms.
- *
- * The worker writes `message` — `Maximum active time exceeded` — which answers *why*. It
- * deliberately does not say which device or what became of it, because that is the app's
- * half of the sentence and the app is the one that knows how it is about to be laid out.
- */
-private fun Alert.cause(): String = when (type) {
-    AlertType.MAX_DURATION_EXCEEDED -> "$deviceName switched off automatically"
-    AlertType.DEVICE_ERROR -> "$deviceName reported a fault"
-}
-
 private fun Alert.toEventRow(nowMillis: Long) = EventRow(
     id = id,
     deviceName = deviceName,
     reason = message,
-    type = when (type) {
-        AlertType.MAX_DURATION_EXCEEDED -> AlertIconType.MAX_DURATION_EXCEEDED
-        AlertType.DEVICE_ERROR -> AlertIconType.DEVICE_ERROR
-    },
-    createdAtMillis = createdAtMillis(nowMillis),
+    type = iconType(),
+    createdAtMillis = createdAtMillisOr(nowMillis),
     acknowledged = acknowledged,
 )
-
-/**
- * [Alert.createdAt] is null for the instant between a local write and the server
- * materialising its timestamp. Treating that as "now" is right: an alert with no server
- * time yet is one that has only just been written.
- */
-private fun Alert.createdAtMillis(nowMillis: Long): Long =
-    createdAt?.toDate()?.time ?: nowMillis
