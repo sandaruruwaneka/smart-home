@@ -27,3 +27,4 @@ firestore-debug.log
 # path outside the project.
 *firebase-adminsdk*.json
 service-account*.json
+worker/node_modules/
