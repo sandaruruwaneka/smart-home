@@ -24,6 +24,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -261,6 +264,7 @@ internal fun AlertsContent(
                                     row = row,
                                     onOpen = { onOpenDevice(row.deviceId, row.floorId) },
                                     onLongPress = { longPressed = row },
+                                    onAcknowledge = { onAcknowledge(row.alertId) },
                                 )
                             }
                         }
@@ -299,15 +303,65 @@ internal fun AlertsContent(
  * proving the feature works — which matters for the product and for defending it at the
  * demo. Acknowledging is the only state change, and it deletes nothing.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AlertsListItem(
+    row: AlertRowUiState,
+    onOpen: () -> Unit,
+    onLongPress: () -> Unit,
+    onAcknowledge: () -> Unit,
+) {
+    val colors = SmartHomeTheme.colors
+
+    // Swipe right to acknowledge (section 5). `confirmValueChange` returns false on
+    // purpose: the row must stay exactly where it is. This is not a dismissal -- the alert
+    // is evidence that the safety system fired, and nothing on this screen removes it.
+    val swipeState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.StartToEnd && !row.acknowledged) onAcknowledge()
+            false
+        },
+    )
+
+    SwipeToDismissBox(
+        state = swipeState,
+        enableDismissFromStartToEnd = !row.acknowledged,
+        enableDismissFromEndToStart = false,
+        backgroundContent = {
+            if (row.acknowledged) return@SwipeToDismissBox
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(colors.surfaceVariant, RoundedCornerShape(8.dp))
+                    .padding(horizontal = Spacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.DoneAll, contentDescription = null, tint = colors.primary)
+                Text(
+                    text = "Acknowledge",
+                    style = AppType.label,
+                    color = colors.primary,
+                    modifier = Modifier.padding(start = Spacing.sm),
+                )
+            }
+        },
+    ) {
+        AlertRowContent(row = row, onOpen = onOpen, onLongPress = onLongPress)
+    }
+}
+
+@Composable
+private fun AlertRowContent(
     row: AlertRowUiState,
     onOpen: () -> Unit,
     onLongPress: () -> Unit,
 ) {
     val colors = SmartHomeTheme.colors
 
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.background(colors.background),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         // The leading gutter. Present or absent, never coloured differently — an
         // acknowledged row simply has nothing here.
         Box(
