@@ -1,0 +1,14 @@
+{
+  "name": "smart-home-safety-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Stand-in for Dev B's safety worker: the SCHEMA.md section 10 cutoff sweep and light scheduler.",
+  "main": "safety-worker.js",
+  "scripts": {
+    "start": "node safety-worker.js",
+    "once": "node safety-worker.js --once"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}

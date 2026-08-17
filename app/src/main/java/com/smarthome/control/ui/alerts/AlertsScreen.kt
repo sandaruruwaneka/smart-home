@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DoneAll
@@ -366,23 +365,8 @@ private fun AlertRowContent(
             .background(colors.background),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // The leading gutter. Present or absent, never coloured differently — an
-        // acknowledged row simply has nothing here.
-        Box(
-            modifier = Modifier
-                .size(DotGutter)
-                .padding(end = Spacing.xs),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (!row.acknowledged) {
-                Box(
-                    modifier = Modifier
-                        .size(DotSize)
-                        .background(colors.stateError, CircleShape),
-                )
-            }
-        }
-
+        // No dot drawn here: AlertRow owns the unacknowledged marker, in its own leading
+        // gutter. Drawing a second one was how the row ended up with two.
         AlertRow(
             deviceName = row.deviceName,
             reason = row.message,
@@ -546,8 +530,6 @@ private fun ContractAlertType.toComponentType(): AlertType = when (this) {
     ContractAlertType.DEVICE_ERROR -> AlertType.DEVICE_ERROR
 }
 
-private val DotGutter = 16.dp
-private val DotSize = 8.dp
 private val SkeletonHeight = 72.dp
 
 // ---------------------------------------------------------------------------
