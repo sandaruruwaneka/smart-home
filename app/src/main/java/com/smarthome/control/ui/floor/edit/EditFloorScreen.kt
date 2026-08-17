@@ -109,9 +109,7 @@ fun EditFloorScreen(
         viewModel.messages.collect { snackbarHostState.showSnackbar(it) }
     }
 
-    LaunchedEffect(state.isSaved) {
-        if (state.isSaved) onClose()
-    }
+    LaunchedEffect(viewModel) { viewModel.saved.collect { onClose() } }
 
     // Leaving is the screen's business rather than the content's, because both ways out --
     // the system back gesture and the top bar's close button -- have to pass the same

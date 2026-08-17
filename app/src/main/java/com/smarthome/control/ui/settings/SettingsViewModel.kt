@@ -7,9 +7,12 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.smarthome.control.data.SmartHomeData
 import com.smarthome.control.data.repository.UserRepository
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -32,6 +35,18 @@ class SettingsViewModel(
 
     private val transient = MutableStateFlow(TransientState())
 
+    /**
+     * Signing out is an event, not state.
+     *
+     * As a boolean on the state it latched: this ViewModel is scoped to the Activity, which
+     * survives a sign-out, so signing back in and reopening Settings handed back the same
+     * instance with the flag still true. Its `LaunchedEffect` fired on arrival and bounced
+     * the user straight back to Login -- which looked like the Settings tab being broken.
+     * An event has no such memory.
+     */
+    private val _signedOut = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val signedOut: SharedFlow<Unit> = _signedOut.asSharedFlow()
+
     val state: StateFlow<SettingsUiState> = run {
         val users = users
         if (users == null) {
@@ -44,7 +59,6 @@ class SettingsViewModel(
                     timezone = profile?.timezone.orEmpty(),
                     isSavingTimezone = extra.isSaving,
                     saveError = extra.saveError,
-                    isSignedOut = extra.isSignedOut,
                 )
             }.catch { emit(SettingsUiState(isLoading = false, loadError = LoadFailed)) }
         }
@@ -89,7 +103,21 @@ class SettingsViewModel(
     fun signOut() {
         val users = users ?: return
         users.signOut()
-        transient.update { it.copy(isSignedOut = true) }
+
+        // Announce it only once the auth listener has actually reported null.
+        //
+        // `signOut()` returns before Firebase has told its listeners, and the login screen's
+        // ViewModel is scoped to the Activity, so it still believed the user was signed in.
+        // Emitting straight away sent the host to Login, whose `LaunchedEffect` read that
+        // stale flag and signed the user back in before the screen had finished composing --
+        // which looked like sign-out doing nothing, and left the Settings tab unreachable.
+        //
+        // Waiting for the null closes the race for every listener at once rather than
+        // patching the one screen that noticed.
+        viewModelScope.launch {
+            users.observeAuthState().first { it == null }
+            _signedOut.tryEmit(Unit)
+        }
     }
 
     fun dismissError() = transient.update { it.copy(saveError = null) }
@@ -97,7 +125,6 @@ class SettingsViewModel(
     private data class TransientState(
         val isSaving: Boolean = false,
         val saveError: String? = null,
-        val isSignedOut: Boolean = false,
     )
 
     companion object {

@@ -22,8 +22,6 @@ data class SettingsUiState(
     val isSavingTimezone: Boolean = false,
     val saveError: String? = null,
     val loadError: String? = null,
-    /** Set once the session is gone, so the host can send the user back to Login. */
-    val isSignedOut: Boolean = false,
     val phoneZone: String = ZoneId.systemDefault().id,
 ) {
     /**

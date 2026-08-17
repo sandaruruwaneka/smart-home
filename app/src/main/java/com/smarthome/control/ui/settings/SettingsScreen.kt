@@ -80,7 +80,7 @@ fun SettingsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    LaunchedEffect(state.isSignedOut) { if (state.isSignedOut) onSignedOut() }
+    LaunchedEffect(viewModel) { viewModel.signedOut.collect { onSignedOut() } }
 
     SettingsContent(
         state = state.copy(appearance = appearance, versionLabel = versionLabel(context)),
