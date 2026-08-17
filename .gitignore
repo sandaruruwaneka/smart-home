@@ -21,3 +21,9 @@ local.properties
 # Firebase CLI logs, written wherever the command happens to run.
 firebase-debug.log
 firestore-debug.log
+
+# Firebase service-account keys. These bypass every security rule, so they never belong in
+# a repository - least of all one with a GitHub remote. Seeding scripts read them from a
+# path outside the project.
+*firebase-adminsdk*.json
+service-account*.json

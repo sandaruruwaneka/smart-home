@@ -61,7 +61,12 @@ data class ReportsUiState(
      */
     val emptyMessage: String
         get() = if (hasAnyUsage) {
-            "No activity in the last ${range.label.lowercase()}."
+            // "No activity in the last today." is what the obvious one-liner produces.
+            if (range == ReportRange.Today) {
+                "No activity today."
+            } else {
+                "No activity in the last ${range.label.lowercase()}."
+            }
         } else {
             "No usage recorded yet. Turn a device on and its activity will appear here."
         }
@@ -150,7 +155,7 @@ internal fun buildReportsState(
         val from = maxOf(start, rangeStart)
         val to = minOf(maxOf(end, start), nowMillis)
         if (to > from) ClippedRun(event.deviceId, from, to) else null
-    }
+    }.mergePerDevice()
 
     val totalMillis = clipped.sumOf { it.to - it.from }
 
@@ -255,6 +260,37 @@ private fun spellDuration(totalSeconds: Long): String {
 }
 
 private data class ClippedRun(val deviceId: String, val from: Long, val to: Long)
+
+/**
+ * Collapses overlapping runs of the same device into single intervals.
+ *
+ * A three-gang plate with every channel on has three concurrent usage events, and summing
+ * them makes one device report more hours than the day contains -- 40h in a 24h day, which
+ * is the kind of number that costs a screen its credibility no matter how defensible the
+ * arithmetic behind it.
+ *
+ * "How long was this device on" is a wall-clock question, so overlapping periods merge.
+ * That is deliberately *not* what the multi-switch sheet does: its `Combined on` is
+ * additive on purpose and labelled `Combined` precisely so the two figures cannot be
+ * mistaken for each other. Here the label is `Total on`, and it means what it says.
+ *
+ * Channels of the same unit are already attributed to the parent by `device_id`, so this
+ * needs no knowledge of channels at all.
+ */
+private fun List<ClippedRun>.mergePerDevice(): List<ClippedRun> =
+    groupBy { it.deviceId }.flatMap { (deviceId, runs) ->
+        val merged = mutableListOf<ClippedRun>()
+        runs.sortedBy { it.from }.forEach { run ->
+            val last = merged.lastOrNull()
+            if (last != null && run.from <= last.to) {
+                // Overlapping or touching: extend the interval rather than adding a second.
+                merged[merged.lastIndex] = last.copy(to = maxOf(last.to, run.to))
+            } else {
+                merged += ClippedRun(deviceId, run.from, run.to)
+            }
+        }
+        merged
+    }
 
 private const val MillisPerDay = 24L * 60L * 60L * 1000L
 private const val SecondsPerHour = 3600f

@@ -120,6 +120,47 @@ class ReportsStateTest {
     }
 
     @Test
+    fun `concurrent runs of one device count once, not twice`() {
+        // A three-gang plate with every channel on has three overlapping usage events.
+        // Summing them reports more hours than the day contains, which is how a credible
+        // screen starts looking broken.
+        val state = build(
+            events = listOf(
+                event("fan", todayStart + 8 * hour, todayStart + 12 * hour),
+                event("fan", todayStart + 8 * hour, todayStart + 12 * hour),
+                event("fan", todayStart + 8 * hour, todayStart + 12 * hour),
+            ),
+        )
+
+        assertEquals(4 * 3600L, state.totalOnSeconds)
+        assertEquals(1, state.devicesUsed)
+    }
+
+    @Test
+    fun `partly overlapping runs merge into their union`() {
+        val state = build(
+            events = listOf(
+                event("fan", todayStart + 8 * hour, todayStart + 10 * hour),
+                event("fan", todayStart + 9 * hour, todayStart + 12 * hour),
+            ),
+        )
+
+        assertEquals(4 * 3600L, state.totalOnSeconds)
+    }
+
+    @Test
+    fun `runs that do not overlap still add up`() {
+        val state = build(
+            events = listOf(
+                event("fan", todayStart + 1 * hour, todayStart + 2 * hour),
+                event("fan", todayStart + 5 * hour, todayStart + 6 * hour),
+            ),
+        )
+
+        assertEquals(2 * 3600L, state.totalOnSeconds)
+    }
+
+    @Test
     fun `several runs by one device become one bar`() {
         val state = build(
             events = listOf(
@@ -215,6 +256,24 @@ class ReportsStateTest {
     }
 
     // ---------------------------------------------------------------- empty
+
+    @Test
+    fun `a run that started before the range still counts its overlap`() {
+        // An appliance left on overnight. The aggregation clips it to today; the ViewModel's
+        // query has to be wide enough to hand it over in the first place, which is the half
+        // that was missing.
+        val state = build(events = listOf(open("iron", todayStart - 4 * hour)))
+
+        // Midnight to 19:45, the whole of today so far -- not the run's full length.
+        assertEquals(19 * 3600L + 45 * 60L, state.totalOnSeconds)
+        assertEquals(1, state.devicesUsed)
+    }
+
+    @Test
+    fun `the today range does not say "in the last today"`() {
+        val today = build(range = ReportRange.Today, events = emptyList(), hasAnyUsage = true)
+        assertEquals("No activity today.", today.emptyMessage)
+    }
 
     @Test
     fun `nothing in range is not the same as nothing ever`() {
