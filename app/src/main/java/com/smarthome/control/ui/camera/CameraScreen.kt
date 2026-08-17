@@ -55,7 +55,17 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import android.app.Activity
+import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
+import android.view.accessibility.AccessibilityManager
+import androidx.compose.runtime.DisposableEffect
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import kotlinx.coroutines.delay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.ui.PlayerView
@@ -151,13 +161,44 @@ internal fun CameraContent(
     }
 
     if (fullscreen) {
-        // Immersive: chrome gone, viewport edge to edge, nothing else competing for the
-        // display. The 16:9 feed is the only thing the user came for.
+        val context = LocalContext.current
+        val screenReaderOn = remember { isTouchExplorationOn(context) }
+        var chromeVisible by remember { mutableStateOf(true) }
+
+        // Landscape while fullscreen, portrait on the way out. The rest of the app is
+        // portrait-locked and this is the sole exception -- a 16:9 feed in a portrait
+        // viewport wastes two thirds of the display, which is the whole reason to have a
+        // fullscreen mode at all.
+        DisposableEffect(Unit) {
+            val activity = context.findActivity()
+            val window = activity?.window
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            val controller = window?.let { WindowInsetsControllerCompat(it, it.decorView) }
+            controller?.hide(WindowInsetsCompat.Type.systemBars())
+            controller?.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
+            onDispose {
+                controller?.show(WindowInsetsCompat.Type.systemBars())
+                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            }
+        }
+
+        // Chrome hides after three seconds of no touch -- unless a screen reader is running,
+        // in which case it stays put. Controls that vanish on a timer are unusable to
+        // somebody exploring by touch, who has no way to know they were ever there.
+        LaunchedEffect(chromeVisible, screenReaderOn) {
+            if (chromeVisible && !screenReaderOn) {
+                delay(ChromeHideMillis)
+                chromeVisible = false
+            }
+        }
+
         Box(
             modifier = modifier
                 .fillMaxSize()
                 .background(colors.background)
-                .clickable { fullscreen = false },
+                .clickable { chromeVisible = !chromeVisible },
             contentAlignment = Alignment.Center,
         ) {
             Viewport(
@@ -169,11 +210,16 @@ internal fun CameraContent(
                 onRetry = onRetry,
                 modifier = Modifier.fillMaxWidth(),
             )
-            IconButton(
-                onClick = { fullscreen = false },
-                modifier = Modifier.align(Alignment.TopEnd).padding(Spacing.md),
-            ) {
-                Icon(Icons.Rounded.FullscreenExit, "Exit fullscreen", tint = colors.textPrimary)
+            if (chromeVisible) {
+                IconButton(
+                    onClick = { fullscreen = false },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(Spacing.md)
+                        .semantics { contentDescription = "Exit fullscreen" },
+                ) {
+                    Icon(Icons.Rounded.FullscreenExit, null, tint = colors.textPrimary)
+                }
             }
         }
         return
@@ -614,6 +660,24 @@ private fun CameraUrisDialog(
         },
     )
 }
+
+/** Walks up the context chain to the hosting Activity, which is what owns orientation. */
+private fun android.content.Context.findActivity(): Activity? {
+    var context = this
+    while (context is ContextWrapper) {
+        if (context is Activity) return context
+        context = context.baseContext
+    }
+    return null
+}
+
+private fun isTouchExplorationOn(context: android.content.Context): Boolean =
+    runCatching {
+        context.getSystemService(AccessibilityManager::class.java)?.isTouchExplorationEnabled
+    }.getOrNull() ?: false
+
+/** Section 7: chrome hides after three seconds of no touch. */
+private const val ChromeHideMillis = 3_000L
 
 private val ThumbWidth = 128.dp
 private val DotSize = 8.dp
