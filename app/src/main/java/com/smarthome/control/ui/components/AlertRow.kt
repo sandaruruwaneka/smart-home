@@ -140,6 +140,23 @@ fun AlertRow(
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         verticalAlignment = Alignment.Top,
     ) {
+        // The unacknowledged marker, in the leading gutter and before the icon -- screen
+        // prompt 09 section 4. It used to sit under the timestamp on the right in
+        // `primary`, which meant a screen following that spec drew its own dot on the left
+        // and the row carried two markers in two colours for one piece of information.
+        // The gutter is reserved whether or not the dot is in it, so acknowledging a row
+        // does not shift its text sideways.
+        Box(
+            modifier = Modifier
+                .padding(top = 2.dp)
+                .size(UnreadDotSize),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (!acknowledged) {
+                Box(Modifier.size(UnreadDotSize).background(colors.stateError, CircleShape))
+            }
+        }
+
         Icon(
             imageVector = type.icon,
             contentDescription = null,
@@ -172,17 +189,12 @@ fun AlertRow(
 
         Column(horizontalAlignment = Alignment.End) {
             Text(text = timestamp, style = AppType.label, color = colors.textSecondary)
-            if (!acknowledged) {
-                Box(
-                    Modifier
-                        .padding(top = 6.dp)
-                        .size(6.dp)
-                        .background(colors.primary, CircleShape),
-                )
-            }
         }
     }
 }
+
+/** Section 4 of screen prompt 09 fixes the unacknowledged dot at 8 dp. */
+private val UnreadDotSize = 8.dp
 
 /** Section 8 fixes the arrival flash at 400 ms and 60 %. */
 private const val ArrivalFlashMillis = 400L
