@@ -32,8 +32,6 @@ enum class CreateStep(val label: String) {
  *   nothing to write.
  * @param isPickingDestination the non-gesture equivalent of a drag (section 10): a marker is
  *   selected, `Move` was chosen, and the next cell tap is the destination.
- * @param isSaved the write went through and the screen is done. The host navigates away on
- *   this rather than the ViewModel knowing what a back stack is.
  */
 data class EditFloorUiState(
     val isLoading: Boolean = false,
@@ -47,7 +45,6 @@ data class EditFloorUiState(
     val isSaving: Boolean = false,
     val saveError: String? = null,
     val loadError: String? = null,
-    val isSaved: Boolean = false,
 ) {
     val isCreating: Boolean get() = mode is EditorMode.Create
 

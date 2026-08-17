@@ -66,6 +66,16 @@ class EditFloorViewModel(
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val messages: SharedFlow<String> = _messages.asSharedFlow()
 
+    /**
+     * A completed save, as an event.
+     *
+     * The same reasoning as the settings screen's sign-out: this ViewModel is keyed by floor
+     * id, so reopening the *same* floor's editor in one app session returns the instance
+     * that already saved. A latched boolean would close the editor the moment it opened.
+     */
+    private val _saved = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val saved: SharedFlow<Unit> = _saved.asSharedFlow()
+
     private val undoStack = ArrayDeque<Pair<String, FloorDraft>>()
 
     /** The floor document as loaded, so writes can be bounds-checked against real geometry. */
@@ -371,14 +381,17 @@ class EditFloorViewModel(
 
         val plan = planWrites(original, current.draft)
         if (plan.isEmpty) {
-            _state.update { it.copy(isSaved = true) }
+            _saved.tryEmit(Unit)
             return
         }
 
         viewModelScope.launch {
             _state.update { it.copy(isSaving = true, saveError = null) }
             runCatching { commit(uid, floorId, plan, current.draft) }
-                .onSuccess { _state.update { it.copy(isSaving = false, isSaved = true) } }
+                .onSuccess {
+                    _state.update { it.copy(isSaving = false) }
+                    _saved.tryEmit(Unit)
+                }
                 .onFailure { _state.update { it.copy(isSaving = false, saveError = SaveFailed) } }
         }
     }
