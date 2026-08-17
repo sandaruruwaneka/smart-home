@@ -359,7 +359,11 @@ private fun AlertRowContent(
     val colors = SmartHomeTheme.colors
 
     Row(
-        modifier = Modifier.background(colors.background),
+        // Full width and opaque: this sits on top of the swipe background, and anything it
+        // fails to cover shows the Acknowledge affordance through at rest.
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(colors.background),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // The leading gutter. Present or absent, never coloured differently — an

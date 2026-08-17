@@ -100,7 +100,17 @@ class ReportsViewModel(
                 val nowMillis = System.currentTimeMillis()
                 val rangeStart = startOfDay(nowMillis, zone) -
                     (range.days - 1).toLong() * MillisPerDay
-                val since = Timestamp(Date(rangeStart))
+
+                // The query filters on `started_at`, so asking for exactly the range would
+                // miss any run that began before it and is *still going* -- an appliance
+                // left on overnight would contribute nothing to today, which is precisely
+                // the reading somebody opens this screen for. So the window is widened and
+                // `buildReportsState` clips each run back to the range it is reporting on.
+                //
+                // Two days of lookback covers anything plausible. A run older than that and
+                // still open is not counted, which is a limit worth knowing rather than a
+                // number worth inflating.
+                val since = Timestamp(Date(rangeStart - LookbackMillis))
 
                 // The device list comes from the listener the app already holds -- names and
                 // types only, so one emission is enough.
@@ -143,6 +153,7 @@ class ReportsViewModel(
             "Firebase isn't set up yet. Add app/google-services.json and rebuild."
 
         private const val MillisPerDay = 24L * 60L * 60L * 1000L
+        private const val LookbackMillis = 2L * MillisPerDay
 
         /** Everything ever, for the "has this account any history at all" question. */
         private val EpochStart = Timestamp(Date(0L))
