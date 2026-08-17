@@ -40,8 +40,35 @@ service cloud.firestore {
       // This is a document read per rule evaluation and therefore billable -- acceptable
       // here because channels are only touched from an open device sheet.
       match /channels/{channelId} {
-        allow read, write: if signedIn() && request.auth.uid ==
-          get(/databases/$(database)/documents/devices/$(deviceId)).data.owner_uid;
+        function parentExists() {
+          return exists(/databases/$(database)/documents/devices/$(deviceId));
+        }
+        function parentOwner() {
+          return get(/databases/$(database)/documents/devices/$(deviceId)).data.owner_uid;
+        }
+
+        allow read, update, delete: if signedIn()
+          && parentExists()
+          && request.auth.uid == parentOwner();
+
+        // Create is the one operation where the parent may legitimately not exist yet.
+        // A switch bank and its channels are written in a single batch -- deliberately, so
+        // a unit is never briefly visible with no channels and therefore no derivable
+        // status -- but rules are evaluated against *committed* state, one write at a time.
+        // The channel writes in that batch are judged against a world where the device
+        // document has not landed, so `get()` finds nothing and the whole batch is
+        // rejected. Placing a switch bank was impossible until this branch existed.
+        //
+        // What it costs: a signed-in user can create channel documents under a device id
+        // that does not exist. They are unreachable -- nothing queries channels except
+        // through a parent -- so the exposure is orphaned writes by an authenticated
+        // account, not access to anybody's data.
+        //
+        // The cleaner fix is `owner_uid` on the channel document itself: one rule, no
+        // lookup, no per-evaluation read cost, and no escape hatch. It is not done here
+        // because it is a SCHEMA change that would reject the simulator's channel writes
+        // until Dev B updates to match, and this file says changes need agreeing.
+        allow create: if signedIn() && (!parentExists() || request.auth.uid == parentOwner());
       }
     }
 
